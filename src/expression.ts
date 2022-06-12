@@ -16,7 +16,7 @@ class ExpresionParser {
     Op : Ops
     parser : p.Parser
     
-    constructor(op : Ops ) {        
+    constructor(op : Ops) {        
         this.Op = {...op};
         this.parser = new p.Parser(op);
     }

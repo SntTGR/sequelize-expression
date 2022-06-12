@@ -57,133 +57,142 @@ export interface ValueToken extends Token {
 }
 
 
-// TODO: PARSER HOOKs default!
 // TODO: automatic error handling
     // TODO: Had error flag that doesn't execute
     // TODO: error should be list of error
 
-export function tokenizer( source : string ) : Token[] {
-    
-    const tokens : Token[] = [];
-    
-    const state : {pos : number, tPos : number, length : number,  } = {
-        pos : 0,
-        tPos : 0,
-        length : source.length,
-    }
 
-    // Handlers
-    function literalValue() {
-        let value = '';
+class TokenizerContext {
 
-        getCurrentAndAdvance(); // ignore first "
-        
-        while (getCurrent() != '\"' && !isAtEnd()) {
-            
-            // Check if \
-            if (getCurrent() === '\\') {
-                
-                const next = getNext()
+    public source : string;
+    public state : {pos : number, tPos : number, length : number};
+    public output : Token[] = [];
 
-                if(next === '\\' || next === '\"') {
-                    getCurrentAndAdvance(); // \
-                    value += getCurrentAndAdvance();
-                    continue;
-                }
-
-                value += getCurrentAndAdvance();
-                continue;
-            }
-
-            value += getCurrentAndAdvance();
-
+    constructor( input : string ) {
+        this.source = input;
+        this.state = {
+            pos: 0,
+            tPos : 0,
+            length : input.length
         }
+    };
 
-        if(isAtEnd()) {
-            // TODO: error, expected closing "
-            throw new Error('Parsing error: expected closing "');
-        }
-
-        getCurrentAndAdvance(); // last "
-
-        addValueToken('LITERAL_VALUE', value);
+    addTokenInstance( token : Token ) {
+        this.output.push(token);
     }
-    function identifier(char : string) {
+    addToken( type : TokenType ) {
+        this.output.push( { type } )
+    }
+    addValueToken( type : TokenType, value : string ) {
+        this.output.push({ type, value } as ValueToken)
+    }
+
+
+    isAtEnd() {
+        return this.state.pos >= this.state.length
+    }
+
+    getCurrentAndAdvance() : string {
+        return this.source[this.state.pos++];
+    }
+    getCurrent() : string {
+        return this.source[this.state.pos];
+    }
+    advanceIfMatch(char : string) : boolean {
+        if (this.isAtEnd()) return false;
         
-        let value = char;
-        while (isAlphaNumeric(getNext())) value += getCurrentAndAdvance();
-
-        // Search for reserved keywords
-        const reservedKeywordMatch = reservedKeywords[value.toLowerCase()]        
-        if(reservedKeywordMatch) {
-            addTokenInstance(reservedKeywordMatch);
-            return;
-        }
-
-        addValueToken('IDENTIFIER', value);
-        return;
-        
-    }
-    
-
-    // Helpers
-    function addTokenInstance( token : Token ) {
-        tokens.push(token);
-    }
-    function addToken( type : TokenType ) {
-        tokens.push( { type } )
-    }
-    function addValueToken( type : TokenType, value : string ) {
-        tokens.push({ type, value } as ValueToken)
-    }
-
-
-    function isAtEnd() {
-        return state.pos >= state.length
-    }
-
-    function getCurrentAndAdvance() : string {
-        return source[state.pos++];
-    }
-    function getCurrent() : string {
-        return source[state.pos];
-    }
-    function advanceIfMatch(char : string) : boolean {
-        if (isAtEnd()) return false;
-        
-        if(char === source[state.pos]) {
-            state.pos++;
+        if(char === this.source[this.state.pos]) {
+            this.state.pos++;
             return true;
         }
 
         return false;
     }
-    function getNext() : string {
-        if(isAtEnd()) return '';
-        return source[state.pos];
+    getNext() : string {
+        if(this.isAtEnd()) return '';
+        return this.source[this.state.pos];
     }
-    function isAlphaNumeric(char : string) : boolean {
+    isAlphaNumeric(char : string) : boolean {
         return /[0-9a-zA-Z_\-\.]/.test(char);
     }
 
 
-    function scanToken() {
-        const c = getCurrentAndAdvance();
+}
 
-        switch (c) {
-            case ')': addToken('RIGHT_PAR'); break;
-            case '(': addToken('LEFT_PAR'); break;
-            case '[': addToken('RIGHT_BRACKET'); break;
-            case ']': addToken('LEFT_BRACKET'); break;
-            case ',': addToken('COMMA'); break;
-            case '=': addToken('EQ'); break;
+export function tokenizer( source : string ) : Token[] {
+    
+    const c = new TokenizerContext( source );
+
+    // Handlers
+    function literalValue() {
+        let value = '';
+
+        c.getCurrentAndAdvance(); // ignore first "
+        
+        while (c.getCurrent() != '\"' && !c.isAtEnd()) {
             
-            case '!': advanceIfMatch('=') ? addToken('NE') : addToken('NOT'); break;
-            case '>': advanceIfMatch('=') ? addToken('GTE') : addToken('GT'); break;
-            case '<': advanceIfMatch('=') ? addToken('LTE') : addToken('LT'); break;
+            // Check if \
+            if (c.getCurrent() === '\\') {
+                
+                const next = c.getNext()
+
+                if(next === '\\' || next === '\"') {
+                    c.getCurrentAndAdvance(); // \
+                    value += c.getCurrentAndAdvance();
+                    continue;
+                }
+
+                value += c.getCurrentAndAdvance();
+                continue;
+            }
+
+            value += c.getCurrentAndAdvance();
+
+        }
+
+        if(c.isAtEnd()) {
+            // TODO: error, expected closing "
+            throw new Error('Parsing error: expected closing "');
+        }
+
+        c.getCurrentAndAdvance(); // last "
+
+        c.addValueToken('LITERAL_VALUE', value);
+    }
+    function identifier(char : string) {
+        
+        let value = char;
+        while (c.isAlphaNumeric(c.getNext())) value += c.getCurrentAndAdvance();
+
+        // Search for reserved keywords
+        const reservedKeywordMatch = reservedKeywords[value.toLowerCase()]        
+        if(reservedKeywordMatch) {
+            c.addTokenInstance(reservedKeywordMatch);
+            return;
+        }
+
+        c.addValueToken('IDENTIFIER', value);
+        return;
+        
+    }
+    
+    function scanToken() {
+        const char = c.getCurrentAndAdvance();
+
+        switch (char) {
+            case ')': c.addToken('RIGHT_PAR'); break;
+            case '(': c.addToken('LEFT_PAR'); break;
+            case '[': c.addToken('RIGHT_BRACKET'); break;
+            case ']': c.addToken('LEFT_BRACKET'); break;
+            case ',': c.addToken('COMMA'); break;
+            case '=': c.addToken('EQ'); break;
             
-            case '&': addToken('AND'); break;
-            case '|': addToken('OR'); break;
+            case '!': c.advanceIfMatch('=') ? c.addToken('NE') : c.addToken('NOT'); break;
+            case '>': c.advanceIfMatch('=') ? c.addToken('GTE') : c.addToken('GT'); break;
+            case '<': c.advanceIfMatch('=') ? c.addToken('LTE') : c.addToken('LT'); break;
+            
+            case '&': c.addToken('AND'); break;
+            case '|': c.addToken('OR'); break;
             
             case '\"': literalValue(); break;
             
@@ -191,7 +200,7 @@ export function tokenizer( source : string ) : Token[] {
             case ' ': break;
             
             default:
-                if (isAlphaNumeric(c)) {identifier(c); break;}
+                if (c.isAlphaNumeric(char)) {identifier(char); break;}
             
                 // TODO: Proper error handling: Unexpected char
                 throw new Error('parser error: unexpected char');
@@ -199,12 +208,12 @@ export function tokenizer( source : string ) : Token[] {
         }
     }
 
-    while (!isAtEnd()) {
+    while (!c.isAtEnd()) {
         // Main loop
         scanToken();
     }
-    addToken('END');
+    c.addToken('END');
 
-    return tokens;
+    return c.output;
 }
 

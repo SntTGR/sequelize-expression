@@ -1,19 +1,41 @@
-import { tokenizer } from '../tokenizer';
+import { tokenizer, Token, ValueToken } from '../tokenizer';
+import { Op } from 'sequelize';
 
-describe.skip('tokenizer', () => {
-    test('column EQ 2', () => {
+const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
+[
+    {
+        expression : 'column EQ 2',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column' } as ValueToken, 
+            { type: 'EQ' }, 
+            { type: 'IDENTIFIER', value: '2'} as ValueToken, 
+            { type: 'END' }
+        ]
+    },
+    {
+        expression : 'column2 EQ 3',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 
+            { type: 'EQ' }, 
+            { type: 'IDENTIFIER', value: '3'} as ValueToken, 
+            { type: 'END' }
+        ]
+    }
+]
 
-        const tokens = tokenizer('column EQ 2');
 
-        // NOTE: Maybe refactor this, I need to check the value too
+describe.only('tokenizer', () => {
+    test.each(operationsToTest.map( o => [o.expression,o.expectedTokens]))('%s', (query, expectedTokenList) => {
 
-        expect( tokens ).not.toHaveLength(0);
+        let outputTokens : Token[] = [];
 
-        expect( tokens[0].type ).toBe( 'IDENTIFIER' );
-        expect( tokens[1].type ).toBe( 'EQ' );
-        expect( tokens[2].type ).toBe( 'IDENTIFIER' );
+        // Weird typescript transpiling error. VSCode language server thinks query is strictly string, but while running test it spits compiler error saying query is of type string | Token[]
+        outputTokens = tokenizer(query as string);
         
-    })
+        expect(outputTokens).not.toHaveLength(0);
+        expect(outputTokens).toStrictEqual(expectedTokenList);
 
+    });
+        
     test.todo('Tokenizer error')
 })
