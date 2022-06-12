@@ -1,12 +1,18 @@
-import expression = require('../expression');
+import Expression = require('../expression');
 import { Op } from 'sequelize';
 const { Parser } = require('steplix-query-filters');
 
-const steplixParser = new Parser();
 
-describe('steplix-quey-filters compatibility', () => {
+
+describe.skip('steplix-quey-filters compatibility', () => {
+
+    let steplixParser : typeof Parser;
     
-    test.skip.each([
+    beforeAll(() => {
+        steplixParser = new Parser();
+    })
+
+    test.each([
         'column eq 2',
         'column eq 2,column2 eq 4',
         'column li john%'
@@ -16,7 +22,4 @@ describe('steplix-quey-filters compatibility', () => {
         
 
     })
-
-    
-    
 })
