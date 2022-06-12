@@ -14,4 +14,6 @@ describe.skip('tokenizer', () => {
         expect( tokens[2].type ).toBe( 'IDENTIFIER' );
         
     })
+
+    test.todo('Tokenizer error')
 })
