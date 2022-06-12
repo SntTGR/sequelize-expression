@@ -2,13 +2,6 @@
   "name": "sequelize-expression",
   "version": "0.0.1",
   "description": "Simple query expression frontend for the sequelize library",
-  "main": "",
-  "scripts": {
-    "prepare": "exit 1",
-    "start": "ts-node ./src/expression",
-    "test": "jest",
-    "test:watch": "jest --watchAll"
-  },
   "keywords": [
     "sequelize",
     "expression",
@@ -19,10 +12,14 @@
     "steplix",
     "params"
   ],
-  "author": {
-    "name": "SntTGR"
+  "main": "dist/expression.js",
+  "types": "dist/expression.d.ts",
+  "scripts": {
+    "start": "ts-node ./src/expression",
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watchAll"
   },
-  "license": "MIT",
   "devDependencies": {
     "@types/jest": "^28.1.1",
     "jest": "^28.1.1",
@@ -32,5 +29,13 @@
     "ts-jest": "^28.0.4",
     "ts-node": "^10.8.1",
     "typescript": "^4.7.3"
-  }
+  },
+  "author": {
+    "name": "SntTGR"
+  },
+  "license": "MIT",
+  "repository": "github:SntTGR/sequelize-expression",
+  "workspaces": [
+    "build/tmp"
+  ]
 }
