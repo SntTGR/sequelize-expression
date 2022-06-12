@@ -148,7 +148,7 @@ export class Parser {
             const op = operator();
             const rValue = rightValue();
 
-            return { [lValue] : { [`Symbol(${op})`] : rValue } };
+            return { [lValue] : { [op] : rValue } };
         }
 
         // TODO: update this definition as it doesn't accept null

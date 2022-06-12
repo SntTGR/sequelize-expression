@@ -24,7 +24,7 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
 ]
 
 
-describe.only('tokenizer', () => {
+describe('tokenizer', () => {
     test.each(operationsToTest.map( o => [o.expression,o.expectedTokens]))('%s', (query, expectedTokenList) => {
 
         let outputTokens : Token[] = [];

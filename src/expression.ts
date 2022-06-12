@@ -11,7 +11,7 @@ type PrimaryHook = ( arg0 : Primary ) => Primary | boolean;
 
 // TODO: manage types
 
-class ExpresionParser {
+export class ExpresionParser {
     
     Op : Ops
     parser : p.Parser
