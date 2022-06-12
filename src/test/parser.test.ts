@@ -12,7 +12,7 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
             { type: 'LITERAL_VALUE', value: '2'} as ValueToken, 
             { type: 'END' }
         ],
-        expectedTree : { column : { [Op.eq.toString()] : "2" } }
+        expectedTree : { column : { [Op.eq] : "2" } }
     },
     {
         expression : 'column2 EQ 3',
@@ -22,7 +22,7 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
             { type: 'NUMBER', value: 3} as ValueToken, 
             { type: 'END' }
         ],
-        expectedTree : { column2 : { [Op.eq.toString()] : 3 } }
+        expectedTree : { column2 : { [Op.eq] : 3 } }
     }
 ]
 

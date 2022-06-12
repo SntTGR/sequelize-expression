@@ -2,12 +2,18 @@ import * as t from './tokenizer';
 import * as p from './parser';
 
 type Ops = {[ operation : string] : symbol };
-type Primary = {
-    lValue : string,
-    operator : string,
-    rValue : p.RightValue,
+export type Primary = {
+    [ lValue : string ] : {
+        [ operator : string ] : p.RightValue
+    };
 }
-type PrimaryHook = ( arg0 : Primary ) => Primary | boolean;
+export type PrimaryValues = {
+    lValue : string,
+    operator : symbol,
+    rValue : p.RightValue
+}
+
+export type PrimaryHook = ( arg0 : PrimaryValues ) => Primary | boolean;
 
 // TODO: manage types
 
@@ -22,7 +28,7 @@ export class ExpresionParser {
     }
 
     parse( input : string ) : p.OperationsTree {
-        const tokens = t.tokenizer(input);        
+        const tokens = t.tokenizer(input);
         return this.parser.parse(tokens);
     }
     
@@ -38,8 +44,8 @@ export class ExpresionParser {
      * This hook is useful for column name authorization, resolving external columns/values and for casting values.
      */
     public set hookPrimary( hook : PrimaryHook ) {
-        
-        // TODO: Inyect hook to parser instance
+        // TODO: multiple hooks support
+        this.parser = new p.Parser(this.Op, { primary : hook });
         this._hookPrimary = hook;
     }
     

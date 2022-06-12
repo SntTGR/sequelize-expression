@@ -1,5 +1,6 @@
 import ExpressionParser from '../expression';
 import { Op } from 'sequelize';
+import type { PrimaryHook, Primary, PrimaryValues } from '../expression';
 const { Parser } = require('steplix-query-filters');
 
 describe.only('steplix-quey-filters compatibility', () => {
@@ -9,7 +10,19 @@ describe.only('steplix-quey-filters compatibility', () => {
     
     beforeAll(() => {
         steplixParser = new Parser();
-        sequelizeExpression = new ExpressionParser( Op as any );
+        
+        sequelizeExpression = new ExpressionParser( Op as any);
+        sequelizeExpression.hookPrimary = ( primary : PrimaryValues ) => {
+            if (typeof primary.operator.description === 'undefined') throw new Error('Unexpected symbol undefined');
+
+            let opString = primary.operator.description;
+            
+            // TODO: Check if compatibility error;
+            if(primary.operator.description === 'like') opString = 'li';
+            if(primary.operator.description === 'notLike') opString = 'nl';
+            
+            return { [primary.lValue] : { [opString] : primary.rValue === null ? null : primary.rValue.toString() } }
+        };
     })
 
     test.each([
@@ -22,11 +35,8 @@ describe.only('steplix-quey-filters compatibility', () => {
         let steplixOutputTree = steplixParser.parse(query);
 
         // And syntax
-        const expectedTree = Object.keys(steplixOutputTree).length > 1 ? { 'Symbol(and)' : Object.entries(steplixOutputTree).map( ([key,value]) => ({ [key] : value }) ) } : steplixOutputTree;
+        const expectedTree = Object.keys(steplixOutputTree).length > 1 ? { [Op.and] : Object.entries(steplixOutputTree).map( ([key,value]) => ({ [key] : value }) ) } : steplixOutputTree;
         
-        // TODO: Transform number into strings with a hook
-        // TODO: Transform operation from symbol into plain string
-
         expect(outputTree).toStrictEqual(expectedTree);
 
     })

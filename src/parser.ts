@@ -1,7 +1,8 @@
 import type { Token, TokenType, ValueToken } from './tokenizer';
+import type { PrimaryHook } from './expression';
 
 export interface OperationsTree {
-    [operation : string] : OperationsTree | RightValue
+    [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue
 }
 
 // TODO: manage types
@@ -65,9 +66,13 @@ class ParsingContext {
 export class Parser {
     
     private Ops : ParserOps = {}
+    private hooks : { primary : PrimaryHook } = { primary : () => true }
 
-    constructor( ops : ParserOps ) {
+    constructor( ops : ParserOps, hooks? : { primary : PrimaryHook }  ) {
         this.Ops = ops;
+        if (hooks) {
+            this.hooks = hooks;
+        }
     }
 
     public parse( tokenList : Token[] ) {
@@ -99,7 +104,9 @@ export class Parser {
         */
 
         const Ops = this.Ops;
+        const hooks = this.hooks;
         const c = new ParsingContext(tokenList);
+
 
         // <expression> ::= <andBinary>
         function expression() : OperationsTree {
@@ -148,8 +155,15 @@ export class Parser {
             const op = operator();
             const rValue = rightValue();
 
-            return { [lValue] : { [op] : rValue } };
+            const primary = { [lValue] : { [op] : rValue } };
+            
+            const hookResult = hooks.primary( { lValue, operator : op, rValue } );            
+            if(typeof hookResult === 'boolean') return hookResult ? primary : {};            
+
+            return hookResult;
         }
+
+        
 
         // TODO: update this definition as it doesn't accept null
         // <leftValue> ::= <value> | <literalValue>
@@ -228,24 +242,32 @@ export class Parser {
         }
 
         // <operator> ::= "==" | "!=" | "<" | ">" | "<=" | "EQ" | "eq" | "lt" | "LT" | <value>
-        function operator() : string {
+        function operator() : ParserOps[string] {
             const operator = c.getCurrentAndAdvance();
 
+            let op : string;
+
             switch (operator.type) {
-                case 'GT': return 'gt';
-                case 'LT': return 'lt';
-                case 'EQ': return 'eq';
-                case 'NE': return 'ne';
-                case 'GTE': return 'gte';
-                case 'LTE': return 'lte';
+                case 'GT': op = 'gt'; break;
+                case 'LT': op = 'lt'; break;
+                case 'EQ': op = 'eq'; break;
+                case 'NE': op = 'ne'; break;
+                case 'GTE': op = 'gte'; break;
+                case 'LTE': op = 'lte'; break;
                 case 'IDENTIFIER':
                     if(!c.isValueToken(operator)) throw new Error('Parsing error: Expected value in operator');
                     if(operator.value === null) throw new Error('Parsing error: Expected value for operator, got null');
                     if(typeof operator.value === 'number' ) throw new Error('Parsing error: Invalid value for operator, got number');
-                    return operator.value;
+                    op = operator.value; break;
                 default:
                     throw new Error('Parsing error: Unidentified token in operator');
             }
+
+            // TODO: proper error handling
+            if(typeof Ops[op] === 'undefined') throw new Error('Parsing error: Could not resolve operator');
+
+            return Ops[op];
+
         }
 
         const exp = expression();

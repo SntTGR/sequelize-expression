@@ -45,6 +45,16 @@ const reservedKeywords : {[keyword : string] : Token} = {
     'ne'    : { type:'NE' },
     'gte'   : { type:'GTE' },
     'lte'   : { type:'LTE' },
+    
+    'li'    : { type:'IDENTIFIER', value: 'like'} as ValueToken,
+    'nl'    : { type:'IDENTIFIER', value: 'notLike'} as ValueToken,
+
+    // TODO: Steplix compatibility
+    // in : in. Expect array value
+    // ni : notIn. Expect array value
+    // be : between. Expect array length 2 value
+    // nb : notBetween. Expect array length 2 value
+
     'null'  : { type:'IDENTIFIER', value: null } as ValueToken,
 }
 
@@ -114,7 +124,7 @@ class TokenizerContext {
         return this.source[this.state.pos];
     }
     isAlphaNumeric(char : string) : boolean {
-        return /[0-9a-zA-Z_\-\.]/.test(char);
+        return /[0-9a-zA-Z_\-\.%]/.test(char);
     }
     isNumeric(char : string) : boolean {
         return /[0-9\.]/.test(char);
