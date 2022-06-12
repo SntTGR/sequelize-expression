@@ -5,11 +5,11 @@ import { Op } from 'sequelize';
 const operationsToTest : { expression : string, tokenList : Token[], expectedTree : OperationsTree }[] =
 [
     {
-        expression : 'column EQ 2',
+        expression : 'column EQ "2"',
         tokenList : [
             { type: 'IDENTIFIER', value: 'column' } as ValueToken, 
             { type: 'EQ' }, 
-            { type: 'IDENTIFIER', value: '2'} as ValueToken, 
+            { type: 'LITERAL_VALUE', value: '2'} as ValueToken, 
             { type: 'END' }
         ],
         expectedTree : { column : { [Op.eq.toString()] : "2" } }
@@ -19,10 +19,10 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         tokenList : [
             { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 
             { type: 'EQ' }, 
-            { type: 'IDENTIFIER', value: '3'} as ValueToken, 
+            { type: 'NUMBER', value: 3} as ValueToken, 
             { type: 'END' }
         ],
-        expectedTree : { column2 : { [Op.eq.toString()] : "3" } }
+        expectedTree : { column2 : { [Op.eq.toString()] : 3 } }
     }
 ]
 

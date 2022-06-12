@@ -8,16 +8,16 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
         expectedTokens : [
             { type: 'IDENTIFIER', value: 'column' } as ValueToken, 
             { type: 'EQ' }, 
-            { type: 'IDENTIFIER', value: '2'} as ValueToken, 
+            { type: 'NUMBER', value: 2} as ValueToken, 
             { type: 'END' }
         ]
     },
     {
-        expression : 'column2 EQ 3',
+        expression : 'column2 EQ "3"',
         expectedTokens : [
             { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 
             { type: 'EQ' }, 
-            { type: 'IDENTIFIER', value: '3'} as ValueToken, 
+            { type: 'LITERAL_VALUE', value: '3'} as ValueToken, 
             { type: 'END' }
         ]
     }

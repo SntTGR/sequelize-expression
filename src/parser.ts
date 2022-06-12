@@ -8,7 +8,7 @@ export interface OperationsTree {
 
 export type ParserOps = { [operation : string] : symbol };
 type LeftValue = string;
-export type RightValue = string | null | RightValue[];
+export type RightValue = string | null | number | RightValue[];
 
 
 class ParsingContext {
@@ -159,8 +159,11 @@ export class Parser {
                 
                 // TODO: proper error handling
                 if(!c.isValueToken(leftToken)) throw new Error('Parsing error: Expected value in leftValue');
-                if(leftToken.value === null) throw new Error('Parsing error: Expected value in leftValue, got null'); // This error would never happen
                 
+                // OPTIMIZATION: maybe cast / assert only
+                if(leftToken.value === null) throw new Error('Parsing error: Expected value in leftValue, got null'); // This error would never happen
+                if(typeof leftToken.value === 'number') throw new Error('Parsing error: Expected string value in leftValue, got number'); // This error would never happen
+
                 return leftToken.value;
             }
 
@@ -174,7 +177,8 @@ export class Parser {
             const valueToken = c.getCurrentAndAdvance()
             // TODO: proper error handling
             if(valueToken.type !== 'IDENTIFIER') throw new Error('Parsing error: Expected identifier in value');
-            if(!c.isValueToken(valueToken)) throw new Error('Parsing error: Expected value in value');
+            if(!c.isValueToken(valueToken)) throw new Error('Parsing error: Expected value in identifier value');
+            if(typeof valueToken.value === 'number') throw new Error('Parsing error: Expected non number value in identifier');
             return valueToken.value;
         }
 
@@ -191,8 +195,15 @@ export class Parser {
             if(c.isCurrentMatch('LITERAL_VALUE')) {
                 const rValue = c.getCurrentAndAdvance();
                 // TODO: proper error handling
-                if(!c.isValueToken(rValue)) throw new Error('Parsing error: Expected value in rightValue');
+                if(!c.isValueToken(rValue)) throw new Error('Parsing error: Expected value in literal rightValue');
                 return rValue.value;
+            }
+
+            if(c.isCurrentMatch('NUMBER')) {
+                const rValue = c.getCurrentAndAdvance();
+                // TODO: proper error handling
+                if(!c.isValueToken(rValue)) throw new Error('Parsing error: Expected value in number rightValue');
+                return rValue.value
             }
 
             return value();
@@ -230,7 +241,7 @@ export class Parser {
                 case 'IDENTIFIER':
                     if(!c.isValueToken(operator)) throw new Error('Parsing error: Expected value in operator');
                     if(operator.value === null) throw new Error('Parsing error: Expected value for operator, got null');
-
+                    if(typeof operator.value === 'number' ) throw new Error('Parsing error: Invalid value for operator, got number');
                     return operator.value;
                 default:
                     throw new Error('Parsing error: Unidentified token in operator');

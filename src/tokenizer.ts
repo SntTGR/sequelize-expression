@@ -3,8 +3,9 @@
 export type TokenType = 
         
     // Value
-    'IDENTIFIER'        | // alphanumeric + . + _ + -
+    'IDENTIFIER'        | // alphanumeric + . + _ + - + % (for compatibility reasons)
     'LITERAL_VALUE'     | // "literal" (with \" as escape)
+    'NUMBER'            | // digits + . 
 
     // Misc
     'LEFT_PAR'          | // (
@@ -53,7 +54,7 @@ export interface Token {
 }
 
 export interface ValueToken extends Token {
-    value : string | null
+    value : string | null | number
 }
 
 
@@ -83,7 +84,7 @@ class TokenizerContext {
     addToken( type : TokenType ) {
         this.output.push( { type } )
     }
-    addValueToken( type : TokenType, value : string ) {
+    addValueToken( type : TokenType, value : ValueToken['value'] ) {
         this.output.push({ type, value } as ValueToken)
     }
 
@@ -115,6 +116,9 @@ class TokenizerContext {
     isAlphaNumeric(char : string) : boolean {
         return /[0-9a-zA-Z_\-\.]/.test(char);
     }
+    isNumeric(char : string) : boolean {
+        return /[0-9\.]/.test(char);
+    }
 
 
 }
@@ -127,7 +131,7 @@ export function tokenizer( source : string ) : Token[] {
     function literalValue() {
         let value = '';
 
-        c.getCurrentAndAdvance(); // ignore first "
+        // first " is ignored
         
         while (c.getCurrent() != '\"' && !c.isAtEnd()) {
             
@@ -173,8 +177,20 @@ export function tokenizer( source : string ) : Token[] {
 
         c.addValueToken('IDENTIFIER', value);
         return;
-        
     }
+    function number(char : string) {
+        let value = char;
+        while (c.isNumeric(c.getNext())) value += c.getCurrentAndAdvance();
+
+        const parsedNumber = Number(value);
+
+        // TODO: proper error handling
+        if(Number.isNaN(parsedNumber)) throw new Error('Parsing error: could not parse number');
+
+        c.addValueToken('NUMBER', parsedNumber);
+        return;
+    }
+
     
     function scanToken() {
         const char = c.getCurrentAndAdvance();
@@ -200,6 +216,7 @@ export function tokenizer( source : string ) : Token[] {
             case ' ': break;
             
             default:
+                if (c.isNumeric(char)) {number(char); break;}
                 if (c.isAlphaNumeric(char)) {identifier(char); break;}
             
                 // TODO: Proper error handling: Unexpected char
