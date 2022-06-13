@@ -18,7 +18,9 @@
     "start": "ts-node ./src/expression",
     "build": "tsc",
     "test": "jest",
-    "test:watch": "jest --watchAll"
+    "test:watch": "jest --watchAll",
+    "test:package": "node ./build/prepublish.js",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "devDependencies": {
     "@types/jest": "^28.1.1",
