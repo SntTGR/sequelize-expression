@@ -200,10 +200,7 @@ export class Parser {
         function rightValue() : RightValue {
             
             if(c.advanceIfMatch('LEFT_BRACKET')) {
-                const rValue = array();
-                // TODO: proper error handling
-                if(!c.advanceIfMatch('RIGHT_BRACKET')) throw new Error('Parsing error: Expected closing ] in rightValue');
-                return rValue;
+                return array();
             }
             
             if(c.isCurrentMatch('LITERAL_VALUE')) {
@@ -230,12 +227,8 @@ export class Parser {
             // [ already consumed
             while(!c.isCurrentMatch('RIGHT_BRACKET') && !c.isAtEnd()){
                 arr.push( rightValue() );
-                
-                if(c.advanceIfMatch('COMMA')) continue;
-                break;
+                if(!c.advanceIfMatch('COMMA')) break;
             }
-
-            c.advanceIfMatch('COMMA') // trailing comma is optional
             if(!c.advanceIfMatch('RIGHT_BRACKET')) throw new Error('Parsing error: Expected closing ] in array');
 
             return arr;
@@ -258,7 +251,7 @@ export class Parser {
                     if(!c.isValueToken(operator)) throw new Error('Parsing error: Expected value in operator');
                     if(operator.value === null) throw new Error('Parsing error: Expected value for operator, got null');
                     if(typeof operator.value === 'number' ) throw new Error('Parsing error: Invalid value for operator, got number');
-                    op = operator.value; break;
+                    op = operator.value.toLowerCase(); break;
                 default:
                     throw new Error('Parsing error: Unidentified token in operator');
             }

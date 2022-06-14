@@ -20,6 +20,35 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
             { type: 'LITERAL_VALUE', value: '3'} as ValueToken, 
             { type: 'END' }
         ]
+    },
+    {
+        expression : 'column3 IN [1,2,"3",[3.25,"3.50",threePointSevenFive,[],],five]',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column3' } as ValueToken, 
+            { type: 'IDENTIFIER', value: 'IN' } as ValueToken,
+            { type: 'LEFT_BRACKET' },
+            { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'COMMA'}, 
+            { type: 'NUMBER', value: 2 } as ValueToken,
+            { type: 'COMMA'},
+            { type: 'LITERAL_VALUE', value: '3' } as ValueToken,
+            { type: 'COMMA'},
+            { type: 'LEFT_BRACKET' },
+            { type: 'NUMBER', value: 3.25 } as ValueToken,
+            { type: 'COMMA'},
+            { type: 'LITERAL_VALUE', value: '3.50' } as ValueToken,
+            { type: 'COMMA'},
+            { type: 'IDENTIFIER', value: 'threePointSevenFive' } as ValueToken,
+            { type: 'COMMA'},
+            { type: 'LEFT_BRACKET' },
+            { type: 'RIGHT_BRACKET' },
+            { type: 'COMMA'},
+            { type: 'RIGHT_BRACKET' },
+            { type: 'COMMA'},
+            { type: 'IDENTIFIER', value: 'five' } as ValueToken,
+            { type: 'RIGHT_BRACKET' },
+            { type: 'END' }
+        ]
     }
 ]
 

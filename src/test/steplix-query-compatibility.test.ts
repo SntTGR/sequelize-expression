@@ -3,7 +3,7 @@ import { Op } from 'sequelize';
 import type { PrimaryHook, Primary, PrimaryValues } from '../expression';
 const { Parser } = require('steplix-query-filters');
 
-describe.only('steplix-quey-filters compatibility', () => {
+describe.skip('steplix-quey-filters compatibility', () => {
 
     let steplixParser : typeof Parser;
     let sequelizeExpression : ExpressionParser;
@@ -26,9 +26,12 @@ describe.only('steplix-quey-filters compatibility', () => {
     })
 
     test.each([
-        'column eq 2',
-        'column eq 2,column2 eq 4',
-        'column li john%'
+        'column1 eq 2',
+        'column2 eq 2,column2 eq 4',
+        'column3 li john%',
+        'column4 in [1;2;3]',
+        'column5 be [1;10]',
+        ''
     ])('%s', query => {
 
         const outputTree = sequelizeExpression.parse(query);

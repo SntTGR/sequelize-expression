@@ -208,8 +208,8 @@ export function tokenizer( source : string ) : Token[] {
         switch (char) {
             case ')': c.addToken('RIGHT_PAR'); break;
             case '(': c.addToken('LEFT_PAR'); break;
-            case '[': c.addToken('RIGHT_BRACKET'); break;
-            case ']': c.addToken('LEFT_BRACKET'); break;
+            case ']': c.addToken('RIGHT_BRACKET'); break;
+            case '[': c.addToken('LEFT_BRACKET'); break;
             case ',': c.addToken('COMMA'); break;
             case '=': c.addToken('EQ'); break;
             

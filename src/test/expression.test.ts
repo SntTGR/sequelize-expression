@@ -10,4 +10,9 @@ describe.skip('sequelize-expression.js', () => {
     test.todo('initialization with sequelize operations');
     test.todo('initialization with subset of sequelize operations');
     test.todo('initialization with custom operations');
+    
+    test.todo('operator solver hook');
+    test.todo('column mapper hook');
+    test.todo('value mapper hook');
+
 })
