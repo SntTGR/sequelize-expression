@@ -84,20 +84,22 @@ export class Parser {
         /*
         *   <expression> ::= <andBinary>
         *                   
-        *   <andBinary> ::= <orBinary> ( <and> <orBinary> )*
-        *   <orBinary> ::= <unary> ( <or> <unary> )*
+        *   <orBinary> ::= <andBinary> ( <or> <andBinary> )*
+        *   <andBinary> ::= <unary> ( <and> <unary> )*
         *   <unary> ::= <not> <unary> | <primary>
         *   <primary> ::= <leftValue> <operator> <rightValue> | "(" <expression> ")"
         *                   
         *   <literalValue> ::= "\"val" ([0-9]) "\""
         *   <value> ::= "val" ([0-9])
+        *   <numbeer> ::= ([0-9]*.?[0-9]*)
+        *
         *                   
         *   <and> ::= "&" | "AND" | "and" | ","
         *   <or> ::= "|" | "OR" | "or"
         *   <not> ::= "!" | "NOT" | "not"
         *                   
         *   <operator> ::= "==" | "!=" | "<" | ">" | "<=" | "EQ" | "eq" | "lt" | "LT" | <value>
-        *   <rightValue> ::= <value> | <array> | <literalValue>
+        *   <rightValue> ::= <value> | <array> | <literalValue> | "null" | <number>
         *   <leftValue> ::= <value> | <literalValue>
         *   <array> ::= "[" ( (<rightValue>) ("," (<rightValue>))* (",")? )? "]"
         * 
@@ -107,30 +109,29 @@ export class Parser {
         const hooks = this.hooks;
         const c = new ParsingContext(tokenList);
 
-
         // <expression> ::= <andBinary>
         function expression() : OperationsTree {
-            return andBinary();
+            return orBinary();
         }
 
-        // <andBinary> ::= <orBinary> ( <and> <orBinary> )*
-        function andBinary() : OperationsTree {
-            const lOrBinary = orBinary();
-            const andGenerator = { [Ops.and] : [lOrBinary] };
-            while(c.advanceIfMatch( 'AND', 'COMMA' )) {
-                andGenerator[Ops.and].push(orBinary());
-            }
-            return andGenerator[Ops.and].length === 1 ? lOrBinary : andGenerator;
-        }
-
-        // <orBinary> ::= <unary> ( <or> <unary> )*
+        // <orBinary> ::= <andBinary> ( <or> <andBinary> )*
         function orBinary() : OperationsTree {
-            const lUnary = unary();
+            const lUnary = andBinary();
             const orGenerator = { [Ops.or] : [lUnary] };
             while (c.advanceIfMatch('OR')) {
-                orGenerator[Ops.or].push(unary());
+                orGenerator[Ops.or].push(andBinary());
             }
             return orGenerator[Ops.or].length === 1 ? lUnary : orGenerator;
+        }
+
+        // <andBinary> ::= <unary> ( <and> <unary> )*
+        function andBinary() : OperationsTree {
+            const lOrBinary = unary();
+            const andGenerator = { [Ops.and] : [lOrBinary] };
+            while(c.advanceIfMatch( 'AND', 'COMMA' )) {
+                andGenerator[Ops.and].push(unary());
+            }
+            return andGenerator[Ops.and].length === 1 ? lOrBinary : andGenerator;
         }
 
         // <unary> ::= <not> <unary> | <primary>
