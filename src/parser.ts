@@ -1,4 +1,4 @@
-import type { Token, TokenType, ValueToken } from './tokenizer';
+import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
 import type { PrimaryHook } from './expression';
 
 export interface OperationsTree {
@@ -6,6 +6,7 @@ export interface OperationsTree {
 }
 
 // TODO: manage types
+// TODO: Proper error handling
 
 export type ParserOps = { [operation : string] : symbol };
 type LeftValue = string;
@@ -60,7 +61,12 @@ class ParsingContext {
     isValueToken(token : Token) : token is ValueToken {
         return 'value' in token;
     }
-
+    isStringToken(token : Token) : token is StringToken {
+        return typeof (token as StringToken).value === 'string';
+    }
+    isNumberToken(token : Token) : token is NumberToken {
+        return typeof (token as NumberToken).value === 'number';
+    }
 }
 
 export class Parser {
@@ -81,6 +87,44 @@ export class Parser {
 
         // TODO: Improve syntax for null, add numbers and SQL regex expressions without literals
 
+        // /* ------------- Expressions ------------ */
+        //    
+        //      <expression> ::= <orBinary>
+        //      <orBinary> ::= <andBinary> ( <or> <andBinary> )*
+        //      <andBinary> ::= <unary> ( <and> <unary> )*
+        //      <unary> ::= <not> <unary> | <primary>
+        //      <primary> ::= <leftValue> <operator> <rightValue> | "(" <expression> ")"
+        //
+        // /* ------------- Value Types ------------ */
+        //
+        //      <literalValue> ::= "\"val" ([0-9]) "\""
+        //      <identifier> ::= "val" ([0-9] | [a-z] | [A-Z] | "." | "_" | "-" | "%" )+    /* should be separated by non identifier valid characters */ 
+        //      <number> ::= ("-")? ([0-9])+ ("." ([0-9])+ )?                               /* number takes precedence if identifier has only number valid characters */ 
+        //      <null> ::= "null"
+        //
+        // /* ------------ Required Operators ------ */
+        //
+        //      <and> ::= "&" | "AND" | "and" | ","
+        //      <or> ::= "|" | "OR" | "or"
+        //      <not> ::= "!" | "NOT" | "not"
+        //      
+        //      <gt> ::= ">" | "gt"  | "GT"
+        //      <lt> ::= "<" | "lt" | "LT"
+        //      <eq> ::= "=" | "eq" | "EQ"
+        //      <ne> ::= "!=" | "ne" | "NE"
+        //      <gte> ::= ">=" | "gte" | "GTE"
+        //      <lte> ::= "<=" | "lte" | "LTE"
+        //
+        // /* ------------- Value Groups ------------- */
+        //
+        //      <operator> ::= <gt> | <lt> | <eq> | <ne> | <gte> | <lte> | <identifier>
+        //      <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null>
+        //      <leftValue> ::= <identifier> | <literalValue>
+        //      <array> ::= "[" ( (<rightValue>) (("," | ";") (<rightValue>))* ("," | ";")? )? "]"
+        //
+        // /* ---------------------------------------- */
+
+
         /*
         *   <expression> ::= <andBinary>
         *                   
@@ -92,7 +136,6 @@ export class Parser {
         *   <literalValue> ::= "\"val" ([0-9]) "\""
         *   <value> ::= "val" ([0-9])
         *   <numbeer> ::= ([0-9]*.?[0-9]*)
-        *
         *                   
         *   <and> ::= "&" | "AND" | "and" | ","
         *   <or> ::= "|" | "OR" | "or"
@@ -102,7 +145,6 @@ export class Parser {
         *   <rightValue> ::= <value> | <array> | <literalValue> | "null" | <number>
         *   <leftValue> ::= <value> | <literalValue>
         *   <array> ::= "[" ( (<rightValue>) ("," (<rightValue>))* (",")? )? "]"
-        * 
         */
 
         const Ops = this.Ops;
@@ -151,53 +193,41 @@ export class Parser {
                 return exp;
             }
 
-            // Left value
             const lValue = leftValue();
             const op = operator();
             const rValue = rightValue();
 
             const primary = { [lValue] : { [op] : rValue } };
             
-            const hookResult = hooks.primary( { lValue, operator : op, rValue } );            
-            if(typeof hookResult === 'boolean') return hookResult ? primary : {};            
+            // TODO: Simplify hooks API
+            const hookResult = hooks.primary( { lValue, operator : op, rValue } );
+            if(typeof hookResult === 'boolean') return hookResult ? primary : {};
 
             return hookResult;
         }
 
-        
-
-        // TODO: update this definition as it doesn't accept null
-        // <leftValue> ::= <value> | <literalValue>
+        // <leftValue> ::= <identifier> | <literalValue>
         function leftValue() : string {
-            if(c.isCurrentMatch('LITERAL_VALUE')) {            
+            if(c.isCurrentMatch('LITERAL_VALUE')) {
                 const leftToken = c.getCurrentAndAdvance();
-                
-                // TODO: proper error handling
-                if(!c.isValueToken(leftToken)) throw new Error('Parsing error: Expected value in leftValue');
-                
-                // OPTIMIZATION: maybe cast / assert only
-                if(leftToken.value === null) throw new Error('Parsing error: Expected value in leftValue, got null'); // This error would never happen
-                if(typeof leftToken.value === 'number') throw new Error('Parsing error: Expected string value in leftValue, got number'); // This error would never happen
-
+                if(!c.isStringToken(leftToken)) throw new Error('Parsing error: Expected string in leftValue');
                 return leftToken.value;
             }
 
-            const v = value();
-            if(v === null) throw new Error('Parsing error: Expected value in leftValue, got null');
+            const idValue = identifier();
+            if(idValue === null) throw new Error('Parsing error: Expected value in leftValue, got null');
 
-            return v;
+            return idValue;
         }
-        
-        function value() : string | null {
+
+        // <identifier> ::= "val" ([0-9] | [a-z] | [A-Z] | "." | "_" | "-" | "%" )+    /* should be separated by non identifier valid characters */ 
+        function identifier() : string {
             const valueToken = c.getCurrentAndAdvance()
-            // TODO: proper error handling
-            if(valueToken.type !== 'IDENTIFIER') throw new Error('Parsing error: Expected identifier in value');
-            if(!c.isValueToken(valueToken)) throw new Error('Parsing error: Expected value in identifier value');
-            if(typeof valueToken.value === 'number') throw new Error('Parsing error: Expected non number value in identifier');
+            if(valueToken.type !== 'IDENTIFIER' || !c.isStringToken(valueToken) ) throw new Error('Parsing error: Expected identifier in value');
             return valueToken.value;
         }
 
-        // <rightValue> ::= <value> | <array> | <literalValue>
+        // <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null>
         function rightValue() : RightValue {
             
             if(c.advanceIfMatch('LEFT_BRACKET')) {
@@ -206,36 +236,38 @@ export class Parser {
             
             if(c.isCurrentMatch('LITERAL_VALUE')) {
                 const rValue = c.getCurrentAndAdvance();
-                // TODO: proper error handling
-                if(!c.isValueToken(rValue)) throw new Error('Parsing error: Expected value in literal rightValue');
+                if(!c.isStringToken(rValue)) throw new Error('Parsing error: Expected string value in literal rightValue');
                 return rValue.value;
             }
 
             if(c.isCurrentMatch('NUMBER')) {
                 const rValue = c.getCurrentAndAdvance();
-                // TODO: proper error handling
-                if(!c.isValueToken(rValue)) throw new Error('Parsing error: Expected value in number rightValue');
+                if(!c.isNumberToken(rValue)) throw new Error('Parsing error: Expected number value in number rightValue');
                 return rValue.value
             }
 
-            return value();
+            if(c.isCurrentMatch('NULL')) {
+                return null;
+            }
+
+            return identifier();
         }
 
-        // <array> ::= "[" ( (<rightValue>) ("," (<rightValue>))* (",")? )? "]"
+        // <array> ::= "[" ( (<rightValue>) (("," | ";") (<rightValue>))* ("," | ";")? )? "]"
         function array() : RightValue[] {
             const arr : RightValue[] = [];
 
             // [ already consumed
             while(!c.isCurrentMatch('RIGHT_BRACKET') && !c.isAtEnd()){
                 arr.push( rightValue() );
-                if(!c.advanceIfMatch('COMMA')) break;
+                if(!c.advanceIfMatch('COMMA', 'SEMICOLON')) break;
             }
             if(!c.advanceIfMatch('RIGHT_BRACKET')) throw new Error('Parsing error: Expected closing ] in array');
 
             return arr;
         }
 
-        // <operator> ::= "==" | "!=" | "<" | ">" | "<=" | "EQ" | "eq" | "lt" | "LT" | <value>
+        // <operator> ::= <gt> | <lt> | <eq> | <ne> | <gte> | <lte> | <identifier>
         function operator() : ParserOps[string] {
             const operator = c.getCurrentAndAdvance();
 
@@ -249,19 +281,16 @@ export class Parser {
                 case 'GTE': op = 'gte'; break;
                 case 'LTE': op = 'lte'; break;
                 case 'IDENTIFIER':
-                    if(!c.isValueToken(operator)) throw new Error('Parsing error: Expected value in operator');
-                    if(operator.value === null) throw new Error('Parsing error: Expected value for operator, got null');
-                    if(typeof operator.value === 'number' ) throw new Error('Parsing error: Invalid value for operator, got number');
+                    if(!c.isStringToken(operator)) throw new Error('Parsing error: Expected string in operator')
                     op = operator.value.toLowerCase(); break;
                 default:
                     throw new Error('Parsing error: Unidentified token in operator');
             }
 
-            // TODO: proper error handling
+            // TODO: Operator hook?
             if(typeof Ops[op] === 'undefined') throw new Error('Parsing error: Could not resolve operator');
 
             return Ops[op];
-
         }
 
         const exp = expression();

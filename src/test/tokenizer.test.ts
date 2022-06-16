@@ -1,4 +1,4 @@
-import { tokenizer, Token, ValueToken } from '../tokenizer';
+import { tokenizer, Token, ValueToken, StringToken, NumberToken } from '../tokenizer';
 import { Op } from 'sequelize';
 
 const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
@@ -49,6 +49,21 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
             { type: 'RIGHT_BRACKET' },
             { type: 'END' }
         ]
+    },
+    {
+        expression : 'column4 in [1;2;3]',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column4' } as StringToken,
+            { type: 'IDENTIFIER', value: 'in' } as StringToken,
+            { type: 'LEFT_BRACKET' },
+            { type: 'NUMBER', value: 1 } as NumberToken,
+            { type: 'SEMICOLON' },
+            { type: 'NUMBER', value: 2 } as NumberToken,
+            { type: 'SEMICOLON' },
+            { type: 'NUMBER', value: 3 } as NumberToken,
+            { type: 'RIGHT_BRACKET' },
+            { type: 'END' },
+        ],
     }
 ]
 

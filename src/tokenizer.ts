@@ -6,6 +6,7 @@ export type TokenType =
     'IDENTIFIER'        | // alphanumeric + . + _ + - + % (for compatibility reasons)
     'LITERAL_VALUE'     | // "literal" (with \" as escape)
     'NUMBER'            | // digits + . 
+    'NULL'              | // null
 
     // Misc
     'LEFT_PAR'          | // (
@@ -13,9 +14,13 @@ export type TokenType =
     'LEFT_BRACKET'      | // [
     'RIGHT_BRACKET'     | // ]
     'COMMA'             | // ,
-    // Operations
+    'SEMICOLON'         | // ;
+    
+    // TODO: support semicolon for steplix arrays
+
+    // Basic operations
     'GT'                | // > or gt
-    'LT'                | // < or gt
+    'LT'                | // < or lt
     'EQ'                | // = or eq
     'NE'                | // != or ne
     'GTE'               | // >= or gte
@@ -36,9 +41,15 @@ export type TokenType =
 
 
 const reservedKeywords : {[keyword : string] : Token} = {
+    
+    // Reserved keywords are case insensitive
+
+    // Logical
     'not'   : { type:'NOT' },
     'and'   : { type:'AND' },
     'or'    : { type:'OR' },
+    
+    // Basic operations
     'gt'    : { type:'GT' },
     'lt'    : { type:'LT' },
     'eq'    : { type:'EQ' },
@@ -46,32 +57,38 @@ const reservedKeywords : {[keyword : string] : Token} = {
     'gte'   : { type:'GTE' },
     'lte'   : { type:'LTE' },
     
-    'li'    : { type:'IDENTIFIER', value: 'like'} as ValueToken,
-    'nl'    : { type:'IDENTIFIER', value: 'notLike'} as ValueToken,
+    // null
+    'null'  : { type:'NULL' },
 
-    // TODO: Steplix compatibility
-    // in : in. Expect array value
-    // ni : notIn. Expect array value
-    // be : between. Expect array length 2 value
-    // nb : notBetween. Expect array length 2 value
+    // Steplix Compatibility
+    // TODO: Make the compatibility in hook or in the Op mapper
+    // 'li'    : { type:'IDENTIFIER', value: 'like'} as ValueToken,
+    // 'nl'    : { type:'IDENTIFIER', value: 'notLike'} as ValueToken,         // --------------------------
+    // 'in'    : { type:'IDENTIFIER', value: 'in'} as ValueToken,              // in.             ~~ in parser: Expect array value ~~ concern of sequelize interpreter
+    // 'ni'    : { type:'IDENTIFIER', value: 'notIn'} as ValueToken,           // notIn.          ~~ in parser: Expect array value ~~ concern of sequelize interpreter
+    // 'be'    : { type:'IDENTIFIER', value: 'between'} as ValueToken,         // between.        ~~ in parser: Expect array length 2 value ~~ concern of sequelize interpreter
+    // 'nb'    : { type:'IDENTIFIER', value: 'notBetween'} as ValueToken,      // notBetween.     ~~ in parser: Expect array length 2 value ~~ concern of sequelize interpreter
 
-    'null'  : { type:'IDENTIFIER', value: null } as ValueToken,
 }
 
 
 export interface Token {
     type : TokenType
 }
-
-export interface ValueToken extends Token {
-    value : string | null | number
+export interface NumberToken extends ValueToken {
+    value : number
+}
+export interface StringToken extends ValueToken {
+    value : string
 }
 
+export interface ValueToken extends Token {
+    value : string | number
+}
 
 // TODO: automatic error handling
     // TODO: Had error flag that doesn't execute
     // TODO: error should be list of error
-
 
 class TokenizerContext {
 
@@ -211,6 +228,7 @@ export function tokenizer( source : string ) : Token[] {
             case ']': c.addToken('RIGHT_BRACKET'); break;
             case '[': c.addToken('LEFT_BRACKET'); break;
             case ',': c.addToken('COMMA'); break;
+            case ';': c.addToken('SEMICOLON'); break;
             case '=': c.addToken('EQ'); break;
             
             case '!': c.advanceIfMatch('=') ? c.addToken('NE') : c.addToken('NOT'); break;

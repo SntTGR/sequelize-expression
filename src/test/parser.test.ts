@@ -1,5 +1,5 @@
 import { OperationsTree, Parser, ParserOps } from '../parser';
-import type { Token, ValueToken } from '../tokenizer';
+import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 import { Op } from 'sequelize';
 
 const primaryGenerator = (id : number) : Token[] => {
@@ -153,9 +153,25 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         ],
         expectedTree : { [Op.or] : [{[Op.not] : { c1 : { [Op.eq] : 1 } }}, { [Op.not] : { [Op.or] : [{ c2 : { [Op.eq] : 2 }}, {c3: { [Op.eq] : 3 }}, {c4: { [Op.eq] : 4 }}] }}] }
     },
+    {
+        expression : 'column4 in [1;2;3]',
+        tokenList : [
+            { type: 'IDENTIFIER', value: 'column4' } as StringToken,
+            { type: 'IDENTIFIER', value: 'in' } as StringToken,
+            { type: 'LEFT_BRACKET' },
+            { type: 'NUMBER', value: 1 } as NumberToken,
+            { type: 'SEMICOLON' },
+            { type: 'NUMBER', value: 2 } as NumberToken,
+            { type: 'SEMICOLON' },
+            { type: 'NUMBER', value: 3 } as NumberToken,
+            { type: 'RIGHT_BRACKET' },
+            { type: 'END' }
+        ],
+        expectedTree : { column4 : { [Op.in] : [1,2,3] } }
+    }
 ]
 
-describe.only('Parser', () => {
+describe('Parser', () => {
     
     let parser : Parser;
 
