@@ -1,4 +1,12 @@
-// TODO: Tokenizer Error
+import { ErrorBundle, ExpressionError, ExpressionResult } from "./errors";
+
+export class TokenizerError extends ExpressionError {
+    constructor(message : string, position : number) {
+        super(message, position, 1);
+        Object.setPrototypeOf(this, TokenizerError.prototype);
+        this.name = this.constructor.name;
+    };
+}
 
 export type TokenType = 
         
@@ -16,8 +24,6 @@ export type TokenType =
     'COMMA'             | // ,
     'SEMICOLON'         | // ;
     
-    // TODO: support semicolon for steplix arrays
-
     // Basic operations
     'GT'                | // > or gt
     'LT'                | // < or lt
@@ -60,20 +66,12 @@ const reservedKeywords : {[keyword : string] : Token} = {
     // null
     'null'  : { type:'NULL' },
 
-    // Steplix Compatibility
-    // TODO: Make the compatibility in hook or in the Op mapper
-    // 'li'    : { type:'IDENTIFIER', value: 'like'} as ValueToken,
-    // 'nl'    : { type:'IDENTIFIER', value: 'notLike'} as ValueToken,         // --------------------------
-    // 'in'    : { type:'IDENTIFIER', value: 'in'} as ValueToken,              // in.             ~~ in parser: Expect array value ~~ concern of sequelize interpreter
-    // 'ni'    : { type:'IDENTIFIER', value: 'notIn'} as ValueToken,           // notIn.          ~~ in parser: Expect array value ~~ concern of sequelize interpreter
-    // 'be'    : { type:'IDENTIFIER', value: 'between'} as ValueToken,         // between.        ~~ in parser: Expect array length 2 value ~~ concern of sequelize interpreter
-    // 'nb'    : { type:'IDENTIFIER', value: 'notBetween'} as ValueToken,      // notBetween.     ~~ in parser: Expect array length 2 value ~~ concern of sequelize interpreter
-
 }
 
 
 export interface Token {
-    type : TokenType
+    type : TokenType,
+    position? : { start: number, end: number }
 }
 export interface NumberToken extends ValueToken {
     value : number
@@ -81,14 +79,9 @@ export interface NumberToken extends ValueToken {
 export interface StringToken extends ValueToken {
     value : string
 }
-
 export interface ValueToken extends Token {
     value : string | number
 }
-
-// TODO: automatic error handling
-    // TODO: Had error flag that doesn't execute
-    // TODO: error should be list of error
 
 class TokenizerContext {
 
@@ -96,23 +89,52 @@ class TokenizerContext {
     public state : {pos : number, tPos : number, length : number};
     public output : Token[] = [];
 
+    private errors : TokenizerError[] = [];
+
     constructor( input : string ) {
         this.source = input;
         this.state = {
-            pos: 0,
+            pos: 0, 
             tPos : 0,
             length : input.length
-        }
+        } 
     };
 
+    clearTokenPos() {
+        this.state.tPos = this.state.pos;
+    }
+
+    hadErrors() : boolean {
+        return this.errors.length > 0;
+    }
+
+    bundleErrors() : ErrorBundle {
+        return new ErrorBundle(this.errors);
+    }
+    
+    newTokenizerHardError(message: string) : ErrorBundle {
+        this.newTokenizerSoftError(message);
+        return this.bundleErrors();
+    }
+
+    newTokenizerSoftError(message : string) {
+        this.errors.push(new TokenizerError(message, this.state.pos))
+    }
+
     addTokenInstance( token : Token ) {
+        token.position = {
+            start : this.state.tPos,
+            end: this.state.pos - 1,
+        }
+        this.clearTokenPos();
+
         this.output.push(token);
     }
     addToken( type : TokenType ) {
-        this.output.push( { type } )
+        this.addTokenInstance({type})
     }
     addValueToken( type : TokenType, value : ValueToken['value'] ) {
-        this.output.push({ type, value } as ValueToken)
+        this.addTokenInstance({ type, value } as ValueToken);
     }
 
 
@@ -150,7 +172,7 @@ class TokenizerContext {
 
 }
 
-export function tokenizer( source : string ) : Token[] {
+export function tokenizer( source : string ) : ExpressionResult<Token[]> {
     
     const c = new TokenizerContext( source );
 
@@ -182,8 +204,7 @@ export function tokenizer( source : string ) : Token[] {
         }
 
         if(c.isAtEnd()) {
-            // TODO: error, expected closing "
-            throw new Error('Parsing error: expected closing "');
+            c.newTokenizerSoftError('Expected closing "'); return;
         }
 
         c.getCurrentAndAdvance(); // last "
@@ -211,8 +232,7 @@ export function tokenizer( source : string ) : Token[] {
 
         const parsedNumber = Number(value);
 
-        // TODO: proper error handling
-        if(Number.isNaN(parsedNumber)) throw new Error('Parsing error: could not parse number');
+        if(Number.isNaN(parsedNumber)) { c.newTokenizerSoftError(`Could not parse number: ${value}`); return; }
 
         c.addValueToken('NUMBER', parsedNumber);
         return;
@@ -240,16 +260,14 @@ export function tokenizer( source : string ) : Token[] {
             
             case '\"': literalValue(); break;
             
-            case '\t': break;
-            case ' ': break;
+            case '\t': c.clearTokenPos(); break;
+            case ' ': c.clearTokenPos(); break;
             
             default:
                 if (c.isNumeric(char)) {number(char); break;}
                 if (c.isAlphaNumeric(char)) {identifier(char); break;}
             
-                // TODO: Proper error handling: Unexpected char
-                throw new Error('parser error: unexpected char');
-                break;
+                c.newTokenizerSoftError(`Unrecognized character: ${char}`); break;
         }
     }
 
@@ -257,8 +275,12 @@ export function tokenizer( source : string ) : Token[] {
         // Main loop
         scanToken();
     }
+    
+    c.state.pos++;
     c.addToken('END');
 
-    return c.output;
+    const value = c.hadErrors() ? c.bundleErrors() : c.output;
+
+    return new ExpressionResult<Token[]>(value);
 }
 

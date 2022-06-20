@@ -6,7 +6,7 @@ try {
         ['eq'] : Symbol('eq'),
     };
     const parser = new ExpresionParser(symbols);
-    const output = parser.parse('col1 = 2, col2 = "4"');
+    const output = parser.parse('col1 = 2, col2 = "4"').getResult();
     // Assertions
     const and = Object.getOwnPropertySymbols(output)[0];
     if(typeof and !== 'symbol') throw new Error('Assertion failure: And is not Symbol');

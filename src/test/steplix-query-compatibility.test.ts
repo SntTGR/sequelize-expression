@@ -100,7 +100,7 @@ describe('steplix-quey-filters compatibility', () => {
         'ColUmn7 nb [1;2]',
     ])('%s', query => {
 
-        const outputTree = sequelizeExpression.parse(query);
+        const outputTree = sequelizeExpression.parse(query).getResult();
         let steplixOutputTree = steplixParser.parse(query);
 
         // And syntax

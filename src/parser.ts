@@ -1,12 +1,27 @@
 import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
 import type { PrimaryHook } from './expression';
+import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
 export interface OperationsTree {
     [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue
 }
 
+export class ParserError extends ExpressionError {
+    constructor(message : string, position : number, length : number){
+        super(message, position, length)
+        Object.setPrototypeOf(this, ParserError.prototype);
+        this.name = this.constructor.name;
+    }
+}
+
+export class PanicNotation extends Error {    
+    constructor() {
+        super();
+        Object.setPrototypeOf(this, PanicNotation.prototype);
+    }
+}
+
 // TODO: manage types
-// TODO: Proper error handling
 
 export type ParserOps = { [operation : string] : symbol };
 type LeftValue = string;
@@ -17,6 +32,8 @@ class ParsingContext {
         
     public tokens : Token[];
     public state : {pos : number, tPos : number, length : number }
+
+    private errors : ParserError[] = [];
     
     constructor( tokenList : Token[] ) {
         this.tokens = tokenList;
@@ -25,6 +42,29 @@ class ParsingContext {
             tPos : 0,
             length : tokenList.length,
         }
+    }
+
+    hasErrors() : boolean {
+        return this.errors.length > 0;
+    }
+
+    bundleErrors() : ErrorBundle {
+        return new ErrorBundle(this.errors);
+    }
+
+    newParserHardError(message: string, token? : Token) {
+        this.newParserSoftError(message, token);
+        return new PanicNotation();
+    }
+
+    newParserSoftError(message: string, token? : Token) {
+        
+        const posToken = token ? token : this.getCurrentToken();
+        
+        let start = posToken.position ? posToken.position.start : 0;
+        let end = posToken.position ? posToken.position.end : 0;
+        
+        this.errors.push(new ParserError(message, start, end - start));
     }
 
     isAtEnd() : boolean {
@@ -39,9 +79,13 @@ class ParsingContext {
         if (!this.isAtEnd()) {
             return this.tokens[this.state.pos];
         }
-        // TODO: proper error handling
-        throw new Error('Parsing error: Invalid token state');
+        throw new Error('Trying to read past end of tokens');
     }
+    getPreviousToken() : Token {
+        if(this.state.pos <= 0) throw new Error('Trying to read token before first one');
+        return this.tokens[this.state.pos-1];
+    }
+
     getCurrentTokenType() : TokenType {
         return this.getCurrentToken().type;
     }
@@ -81,12 +125,8 @@ export class Parser {
         }
     }
 
-    public parse( tokenList : Token[] ) {
+    public parse( tokenList : Token[] ) : ExpressionResult<OperationsTree> {
         
-        // ------------------------------------
-
-        // TODO: Improve syntax for null, add numbers and SQL regex expressions without literals
-
         // /* ------------- Expressions ------------ */
         //    
         //      <expression> ::= <orBinary>
@@ -123,29 +163,6 @@ export class Parser {
         //      <array> ::= "[" ( (<rightValue>) (("," | ";") (<rightValue>))* ("," | ";")? )? "]"
         //
         // /* ---------------------------------------- */
-
-
-        /*
-        *   <expression> ::= <andBinary>
-        *                   
-        *   <orBinary> ::= <andBinary> ( <or> <andBinary> )*
-        *   <andBinary> ::= <unary> ( <and> <unary> )*
-        *   <unary> ::= <not> <unary> | <primary>
-        *   <primary> ::= <leftValue> <operator> <rightValue> | "(" <expression> ")"
-        *                   
-        *   <literalValue> ::= "\"val" ([0-9]) "\""
-        *   <value> ::= "val" ([0-9])
-        *   <numbeer> ::= ([0-9]*.?[0-9]*)
-        *                   
-        *   <and> ::= "&" | "AND" | "and" | ","
-        *   <or> ::= "|" | "OR" | "or"
-        *   <not> ::= "!" | "NOT" | "not"
-        *                   
-        *   <operator> ::= "==" | "!=" | "<" | ">" | "<=" | "EQ" | "eq" | "lt" | "LT" | <value>
-        *   <rightValue> ::= <value> | <array> | <literalValue> | "null" | <number>
-        *   <leftValue> ::= <value> | <literalValue>
-        *   <array> ::= "[" ( (<rightValue>) ("," (<rightValue>))* (",")? )? "]"
-        */
 
         const Ops = this.Ops;
         const hooks = this.hooks;
@@ -189,7 +206,7 @@ export class Parser {
             
             if(c.advanceIfMatch('LEFT_PAR')) {
                 const exp = expression();
-                if(!c.advanceIfMatch('RIGHT_PAR')) throw new Error('Parsing error: Expected closing ) value');
+                if(!c.advanceIfMatch('RIGHT_PAR')) c.newParserSoftError('Expected closing ) value');
                 return exp;
             }
 
@@ -210,12 +227,12 @@ export class Parser {
         function leftValue() : string {
             if(c.isCurrentMatch('LITERAL_VALUE')) {
                 const leftToken = c.getCurrentAndAdvance();
-                if(!c.isStringToken(leftToken)) throw new Error('Parsing error: Expected string in leftValue');
+                if(!c.isStringToken(leftToken)) throw c.newParserHardError('Expected string in leftValue', c.getPreviousToken());
                 return leftToken.value;
             }
 
             const idValue = identifier();
-            if(idValue === null) throw new Error('Parsing error: Expected value in leftValue, got null');
+            if(idValue === null) { c.newParserSoftError('Parsing error: Expected value in leftValue, got null', c.getPreviousToken()); return 'noop' }
 
             return idValue;
         }
@@ -223,7 +240,9 @@ export class Parser {
         // <identifier> ::= "val" ([0-9] | [a-z] | [A-Z] | "." | "_" | "-" | "%" )+    /* should be separated by non identifier valid characters */ 
         function identifier() : string {
             const valueToken = c.getCurrentAndAdvance()
-            if(valueToken.type !== 'IDENTIFIER' || !c.isStringToken(valueToken) ) throw new Error('Parsing error: Expected identifier in value');
+            if(valueToken.type !== 'IDENTIFIER') { c.newParserSoftError('Expected an identifier', c.getPreviousToken()); return '__nullIdentifier'; }
+            if(!c.isStringToken(valueToken)) throw c.newParserHardError('Expected a string in type identifier', c.getPreviousToken());
+
             return valueToken.value;
         }
 
@@ -236,13 +255,13 @@ export class Parser {
             
             if(c.isCurrentMatch('LITERAL_VALUE')) {
                 const rValue = c.getCurrentAndAdvance();
-                if(!c.isStringToken(rValue)) throw new Error('Parsing error: Expected string value in literal rightValue');
+                if(!c.isStringToken(rValue)) throw c.newParserHardError('Expected a string in type literal of rightValue', c.getPreviousToken());
                 return rValue.value;
             }
 
             if(c.isCurrentMatch('NUMBER')) {
                 const rValue = c.getCurrentAndAdvance();
-                if(!c.isNumberToken(rValue)) throw new Error('Parsing error: Expected number value in number rightValue');
+                if(!c.isNumberToken(rValue)) throw c.newParserHardError('Expected a number in type number of rightValue', c.getPreviousToken());
                 return rValue.value
             }
 
@@ -258,11 +277,12 @@ export class Parser {
             const arr : RightValue[] = [];
 
             // [ already consumed
-            while(!c.isCurrentMatch('RIGHT_BRACKET') && !c.isAtEnd()){
+            while(!c.isCurrentMatch('RIGHT_BRACKET') && !c.isCurrentMatch('END') && !c.isAtEnd()){
                 arr.push( rightValue() );
                 if(!c.advanceIfMatch('COMMA', 'SEMICOLON')) break;
             }
-            if(!c.advanceIfMatch('RIGHT_BRACKET')) throw new Error('Parsing error: Expected closing ] in array');
+
+            if(!c.advanceIfMatch('RIGHT_BRACKET')) { c.newParserSoftError('Expected closing ]'); return [] }
 
             return arr;
         }
@@ -281,22 +301,35 @@ export class Parser {
                 case 'GTE': op = 'gte'; break;
                 case 'LTE': op = 'lte'; break;
                 case 'IDENTIFIER':
-                    if(!c.isStringToken(operator)) throw new Error('Parsing error: Expected string in operator')
+                    if(!c.isStringToken(operator)) throw c.newParserHardError('Expected string in operator', c.getPreviousToken())
                     op = operator.value.toLowerCase(); break;
                 default:
-                    throw new Error('Parsing error: Unidentified token in operator');
+                    throw c.newParserHardError(`Unexpected token type of ${operator.type} in operator`, c.getPreviousToken());
             }
 
             // TODO: Operator hook?
-            if(typeof Ops[op] === 'undefined') throw new Error('Parsing error: Could not resolve operator');
+            if(typeof Ops[op] === 'undefined') {
+                c.newParserSoftError(`Could not resolve operator: ${op}`, c.getPreviousToken());
+                return Symbol('noop');
+            }
 
             return Ops[op];
         }
 
-        const exp = expression();
-        if(!c.advanceIfMatch('END')) throw new Error('Parsing error: Expected end of expression');
+        let exp;
 
-        return exp;
+        try {
+            
+            exp = expression();
+            if(!c.advanceIfMatch('END')) throw c.newParserHardError('Expected end of expression');
+            
+        } catch (error) {
+            
+            if(error instanceof PanicNotation) return new ExpressionResult<OperationsTree>(c.bundleErrors()) 
+            else throw error;
+        }
+
+        return new ExpressionResult(c.hasErrors() ? c.bundleErrors() : exp);
 
     }
 

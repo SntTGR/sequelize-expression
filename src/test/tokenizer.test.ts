@@ -1,5 +1,6 @@
-import { tokenizer, Token, ValueToken, StringToken, NumberToken } from '../tokenizer';
+import { tokenizer, Token, ValueToken, StringToken, NumberToken, TokenizerError } from '../tokenizer';
 import { Op } from 'sequelize';
+import { ErrorBundle } from '../errors';
 
 const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
 [
@@ -66,20 +67,96 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
         ],
     }
 ]
+const operationsPositionToTest : { expression : string, expectedTokens: Token[] }[] = [
+    {
+        expression : 'column EQ 2',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column',      position: { start: 0, end: 5 } } as ValueToken, 
+            { type: 'EQ',                               position: { start: 7, end: 8 } }, 
+            { type: 'NUMBER', value: 2,                 position: { start: 10, end: 10 } } as ValueToken, 
+            { type: 'END',                              position: { start: 11, end: 11 } }
+        ]
+    },
+    {
+        expression : '   column2            EQ     "3"  ',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column2',     position: { start: 3,  end: 9  } } as ValueToken, 
+            { type: 'EQ',                               position: { start: 22, end: 23 } }, 
+            { type: 'LITERAL_VALUE', value: '3',        position: { start: 29, end: 31 } } as ValueToken, 
+            { type: 'END',                              position: { start: 34, end: 34 } }
+        ]
+    },
+]
+const operationsErrorsToTest : { expression : string, expectedErrors : string[] }[] = [
+    {
+        expression : 'column eq \"jorge',
+        expectedErrors : [
+            'Expected closing "'
+        ]
+    },
+    {
+        expression : 'column eq #¿asd',
+        expectedErrors : [
+            'Unrecognized character: #',
+            'Unrecognized character: ¿'
+        ]
+    },
+    {
+        expression : 'column eq 1.52.68',
+        expectedErrors : [
+            'Could not parse number: 1.52.68'
+        ]
+    },
+]
+
+function scrubPositionsFromTokenList( tL : Token[] ) {
+    for (const token of tL) {
+        delete token.position;
+    }
+}
 
 
 describe('tokenizer', () => {
-    test.each(operationsToTest.map( o => [o.expression,o.expectedTokens]))('%s', (query, expectedTokenList) => {
+    test.each(operationsToTest.map( o => [o.expression,o.expectedTokens]))('Tokens of %s', (query, expectedTokenList) => {
 
         let outputTokens : Token[] = [];
 
-        // Weird typescript transpiling error. VSCode language server thinks query is strictly string, but while running test it spits compiler error saying query is of type string | Token[]
-        outputTokens = tokenizer(query as string);
+        // Weird typescript error. VSCode language server thinks query is strictly string, but while running test it spits compiler error saying query is of type string | Token[]
+        outputTokens = tokenizer(query as string).getResult();
+
+        scrubPositionsFromTokenList(outputTokens);
+
+        expect(outputTokens).not.toHaveLength(0);
+        expect(outputTokens).toStrictEqual(expectedTokenList);
+
+    });
+
+    test.each(operationsPositionToTest.map( o => [o.expression,o.expectedTokens]))('Token positions of %s', (query, expectedTokenList) => {
+
+        let outputTokens : Token[] = [];
+
+        outputTokens = tokenizer(query as string).getResult();
         
         expect(outputTokens).not.toHaveLength(0);
         expect(outputTokens).toStrictEqual(expectedTokenList);
 
     });
+
+    test.each(operationsErrorsToTest.map( o => [o.expression,o.expectedErrors]))('Token errors of %s', (query, expectedErrors) => {
+
+        let outputTokens : Token[] = [];
+        const sortedExpectedErrors = (expectedErrors as string[]).sort();
+
+        const tokenizerResult = tokenizer(query as string);
+      
+        expect(tokenizerResult.ok).toBe(false);
+        const sortedRecievedErrors = tokenizerResult.getErrors().errors.map(e => e.message).sort();
+
+        expect(sortedRecievedErrors).toEqual(sortedExpectedErrors);
+        tokenizerResult.getErrors().formattedMessage(query as string);
+
+        expect(tokenizerResult.getErrors().errors.every( e => e instanceof TokenizerError )).toBe(true);
+    })
         
     test.todo('Tokenizer error')
 })

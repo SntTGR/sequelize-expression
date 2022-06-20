@@ -1,5 +1,6 @@
 import * as t from './tokenizer';
 import * as p from './parser';
+import { ErrorBundle, ExpressionResult } from './errors';
 
 type Ops = {[ operation : string] : symbol };
 export type Primary = {
@@ -27,9 +28,21 @@ export class ExpresionParser {
         this.parser = new p.Parser(op);
     }
 
-    parse( input : string ) : p.OperationsTree {
-        const tokens = t.tokenizer(input);
-        return this.parser.parse(tokens);
+    parse( input : string ) : ExpressionResult<p.OperationsTree> {
+        
+        const tokensResult = t.tokenizer(input);
+
+        if(!tokensResult.ok) {
+            return new ExpressionResult<p.OperationsTree>(tokensResult.getErrors());
+        }
+
+        const operationResult = this.parser.parse(tokensResult.getResult());
+
+        if(!operationResult.ok) {
+            return new ExpressionResult<p.OperationsTree>(operationResult.getErrors())
+        }
+
+        return new ExpressionResult<p.OperationsTree>(operationResult.getResult());
     }
     
     private _hookPrimary : PrimaryHook = () => true;

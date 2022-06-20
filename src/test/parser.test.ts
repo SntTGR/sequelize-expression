@@ -1,4 +1,4 @@
-import { OperationsTree, Parser, ParserOps } from '../parser';
+import { OperationsTree, Parser, ParserError, ParserOps } from '../parser';
 import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 import { Op } from 'sequelize';
 
@@ -170,6 +170,79 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         expectedTree : { column4 : { [Op.in] : [1,2,3] } }
     }
 ]
+const operationsErrorsToTest : { expression : string, tokenList : Token[], expectedErrors : string[] }[] = [
+    {
+        expression: 'col1 eq [1,2',
+        tokenList: [
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, 
+                { type: 'LEFT_BRACKET'}, { type: 'NUMBER', value: 1} as ValueToken, { type: 'COMMA'}, { type: 'NUMBER', value: 2},
+            { type: 'END' }
+        ],
+        expectedErrors: ['Expected closing ]']
+    },
+    {
+        expression: 'null eq 1',
+        tokenList: [
+            { type: 'NULL' }, { type: 'EQ'}, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Expected an identifier']
+    },
+    {
+        expression: 'col1 3 1',
+        tokenList: [
+            { type: 'IDENTIFIER', value: 'col1' }, { type: 'NUMBER', value: 3 }, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Unexpected token type of NUMBER in operator']
+    },
+    {
+        expression: 'col1 peep 1',
+        tokenList: [
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'IDENTIFIER', value: 'peep'} as ValueToken, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Could not resolve operator: peep']
+    },
+    {
+        expression: 'col1 peep 1',
+        tokenList: [
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'IDENTIFIER', value: 'peep'} as ValueToken, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Could not resolve operator: peep']
+    },
+    {
+        expression: '(col1 eq 1',
+        tokenList: [
+            { type: 'LEFT_PAR' },
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Expected closing ) value']
+    },
+    {
+        expression: '((col1 eq 1',
+        tokenList: [
+            { type: 'LEFT_PAR' },
+            { type: 'LEFT_PAR' },
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'END' }
+        ],
+        expectedErrors: ['Expected closing ) value', 'Expected closing ) value']
+    },
+    {
+        expression: 'col1 eq [1,2,,]',
+        tokenList: [
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, 
+                { type: 'LEFT_BRACKET'}, 
+                    { type: 'NUMBER', value: 1} as ValueToken, { type: 'COMMA'}, { type: 'NUMBER', value: 2}, { type: 'COMMA'}, { type: 'COMMA'},
+                { type: 'RIGHT_BRACKET'}, 
+            { type: 'END' }
+        ],
+        expectedErrors: ['Expected an identifier']
+    },
+]
 
 describe('Parser', () => {
     
@@ -179,15 +252,29 @@ describe('Parser', () => {
         parser = new Parser(Op as any);
     })
 
-    test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', (_, tokenList, expectedTree) => {
+    test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', 
+        (_, tokenList, expectedTree) => {
 
-        const operationTree = parser.parse(tokenList as Token[]);
+        const operationTree = parser.parse(tokenList as Token[]).getResult();
 
         expect(operationTree).toBeDefined();
         expect(operationTree).toStrictEqual(expectedTree);
 
+
     });
 
-    test.todo('Parser panic');
-    test.todo('Parser error');
+    test.each( operationsErrorsToTest.map( o => [o.expression, o.tokenList, o.expectedErrors] ))('Expecting errors of %s', 
+        (expression, tokenList, expectedErrors) => {
+
+        const parserResult = parser.parse(tokenList as Token[])
+
+        expect(parserResult.ok).toBe(false);
+        const sortedErrors = parserResult.getErrors().errors.map(e=>e.message).sort();
+    
+        expect(sortedErrors).toEqual((expectedErrors as string[]).sort());
+        parserResult.getErrors().formattedMessage(expression as string);
+
+        expect(parserResult.getErrors().errors.every(e=>e instanceof ParserError)).toBe(true);
+
+    })
 })

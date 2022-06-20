@@ -11,10 +11,10 @@ describe('sequelize-expression.js', () => {
         const parser = new Expression(Op as any);;
 
         test('Precedence of logical operators', () => {
-            const t1 = parser.parse('(a eq 1 and b eq 2) or c eq 3');
-            const t2 = parser.parse(' a eq 1 and b eq 2  or c eq 3');
+            const t1 = parser.parse('(a eq 1 and b eq 2) or c eq 3').getResult();
+            const t2 = parser.parse(' a eq 1 and b eq 2  or c eq 3').getResult();
             expect(t1).toStrictEqual(t2);
-        });        
+        });
     })
 
     test.todo('initialization with sequelize operations');
