@@ -45,15 +45,28 @@ export class ExpressionResult <Result> {
 
 export class ErrorBundle {
 
-    errors : ExpressionError[];
+    // NOTE: Might refactor later
 
-    constructor(errors : ExpressionError[]) {
+    errors : ExpressionError[];
+    private input : string;
+
+    constructor(errors : ExpressionError[], input? : string) {
         this.errors = errors;
+        this.input = input ? input : '';
     }
 
-    formattedMessage(input : string) : string {
-        // TODO: Calculate message
-        return 'todo';
+    setInput(input : string) {
+        this.input = input;
+    }
+
+    toString() : string {
+        return this.errors.map( (e,i) => {
+
+            return `Err ${i}: ${e.name} - ${e.message}` + ` at ${e.position}:${e.position+e.length}` + '\n' +
+            `${this.input}` + '\n' +
+            ` `.repeat(e.position) + '^'.repeat(e.length)
+
+        }).join('\n\n');
     }
 
 }

@@ -153,7 +153,7 @@ describe('tokenizer', () => {
         const sortedRecievedErrors = tokenizerResult.getErrors().errors.map(e => e.message).sort();
 
         expect(sortedRecievedErrors).toEqual(sortedExpectedErrors);
-        tokenizerResult.getErrors().formattedMessage(query as string);
+        tokenizerResult.getErrors().toString();
 
         expect(tokenizerResult.getErrors().errors.every( e => e instanceof TokenizerError )).toBe(true);
     })

@@ -1,8 +1,8 @@
 import { ErrorBundle, ExpressionError, ExpressionResult } from "./errors";
 
 export class TokenizerError extends ExpressionError {
-    constructor(message : string, position : number) {
-        super(message, position, 1);
+    constructor(message : string, position : number, length : number) {
+        super(message, position, length);
         Object.setPrototypeOf(this, TokenizerError.prototype);
         this.name = this.constructor.name;
     };
@@ -109,16 +109,16 @@ class TokenizerContext {
     }
 
     bundleErrors() : ErrorBundle {
-        return new ErrorBundle(this.errors);
+        return new ErrorBundle(this.errors, this.source);
     }
     
-    newTokenizerHardError(message: string) : ErrorBundle {
-        this.newTokenizerSoftError(message);
+    newTokenizerHardError(message: string, positionModifier? : number, length? : number) : ErrorBundle {
+        this.newTokenizerSoftError(message, positionModifier, length);
         return this.bundleErrors();
     }
 
-    newTokenizerSoftError(message : string) {
-        this.errors.push(new TokenizerError(message, this.state.pos))
+    newTokenizerSoftError(message : string, positionModifier : number = 0, length : number = 1) {
+        this.errors.push(new TokenizerError(message, this.state.pos + positionModifier, length));
     }
 
     addTokenInstance( token : Token ) {
@@ -232,7 +232,7 @@ export function tokenizer( source : string ) : ExpressionResult<Token[]> {
 
         const parsedNumber = Number(value);
 
-        if(Number.isNaN(parsedNumber)) { c.newTokenizerSoftError(`Could not parse number: ${value}`); return; }
+        if(Number.isNaN(parsedNumber)) { c.newTokenizerSoftError(`Could not parse number: ${value}`, c.state.tPos - c.state.pos, c.state.pos - c.state.tPos); return; }
 
         c.addValueToken('NUMBER', parsedNumber);
         return;
@@ -267,7 +267,7 @@ export function tokenizer( source : string ) : ExpressionResult<Token[]> {
                 if (c.isNumeric(char)) {number(char); break;}
                 if (c.isAlphaNumeric(char)) {identifier(char); break;}
             
-                c.newTokenizerSoftError(`Unrecognized character: ${char}`); break;
+                c.newTokenizerSoftError(`Unrecognized character: ${char}`, -1); break;
         }
     }
 

@@ -176,14 +176,14 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
         tokenList: [
             { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, 
                 { type: 'LEFT_BRACKET'}, { type: 'NUMBER', value: 1} as ValueToken, { type: 'COMMA'}, { type: 'NUMBER', value: 2},
-            { type: 'END' }
+            { type: 'END', position: { start: 12, end: 12 } }
         ],
         expectedErrors: ['Expected closing ]']
     },
     {
         expression: 'null eq 1',
         tokenList: [
-            { type: 'NULL' }, { type: 'EQ'}, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'NULL', position: { start: 0, end: 3 } }, { type: 'EQ'}, { type: 'NUMBER', value: 1 } as ValueToken,
             { type: 'END' }
         ],
         expectedErrors: ['Expected an identifier']
@@ -191,7 +191,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
     {
         expression: 'col1 3 1',
         tokenList: [
-            { type: 'IDENTIFIER', value: 'col1' }, { type: 'NUMBER', value: 3 }, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'IDENTIFIER', value: 'col1' }, { type: 'NUMBER', value: 3, position: { start: 5, end: 5 } }, { type: 'NUMBER', value: 1 } as ValueToken,
             { type: 'END' }
         ],
         expectedErrors: ['Unexpected token type of NUMBER in operator']
@@ -199,15 +199,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
     {
         expression: 'col1 peep 1',
         tokenList: [
-            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'IDENTIFIER', value: 'peep'} as ValueToken, { type: 'NUMBER', value: 1 } as ValueToken,
-            { type: 'END' }
-        ],
-        expectedErrors: ['Could not resolve operator: peep']
-    },
-    {
-        expression: 'col1 peep 1',
-        tokenList: [
-            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'IDENTIFIER', value: 'peep'} as ValueToken, { type: 'NUMBER', value: 1 } as ValueToken,
+            { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'IDENTIFIER', value: 'peep', position: { start: 5, end : 8 }} as ValueToken, { type: 'NUMBER', value: 1 } as ValueToken,
             { type: 'END' }
         ],
         expectedErrors: ['Could not resolve operator: peep']
@@ -217,7 +209,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
         tokenList: [
             { type: 'LEFT_PAR' },
             { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: 1 } as ValueToken,
-            { type: 'END' }
+            { type: 'END', position: { start: 10, end: 10 } }
         ],
         expectedErrors: ['Expected closing ) value']
     },
@@ -227,7 +219,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
             { type: 'LEFT_PAR' },
             { type: 'LEFT_PAR' },
             { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: 1 } as ValueToken,
-            { type: 'END' }
+            { type: 'END', position: { start: 11, end: 11 } }
         ],
         expectedErrors: ['Expected closing ) value', 'Expected closing ) value']
     },
@@ -236,7 +228,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
         tokenList: [
             { type: 'IDENTIFIER', value: 'col1' } as ValueToken, { type: 'EQ' }, 
                 { type: 'LEFT_BRACKET'}, 
-                    { type: 'NUMBER', value: 1} as ValueToken, { type: 'COMMA'}, { type: 'NUMBER', value: 2}, { type: 'COMMA'}, { type: 'COMMA'},
+                    { type: 'NUMBER', value: 1} as ValueToken, { type: 'COMMA'}, { type: 'NUMBER', value: 2}, { type: 'COMMA'}, { type: 'COMMA', position: { start: 13, end: 13 }},
                 { type: 'RIGHT_BRACKET'}, 
             { type: 'END' }
         ],
@@ -272,7 +264,8 @@ describe('Parser', () => {
         const sortedErrors = parserResult.getErrors().errors.map(e=>e.message).sort();
     
         expect(sortedErrors).toEqual((expectedErrors as string[]).sort());
-        parserResult.getErrors().formattedMessage(expression as string);
+        parserResult.getErrors().setInput(expression as string);
+        parserResult.getErrors().toString();
 
         expect(parserResult.getErrors().errors.every(e=>e instanceof ParserError)).toBe(true);
 

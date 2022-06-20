@@ -64,7 +64,7 @@ class ParsingContext {
         let start = posToken.position ? posToken.position.start : 0;
         let end = posToken.position ? posToken.position.end : 0;
         
-        this.errors.push(new ParserError(message, start, end - start));
+        this.errors.push(new ParserError(message, start, end - start + 1 ));
     }
 
     isAtEnd() : boolean {
