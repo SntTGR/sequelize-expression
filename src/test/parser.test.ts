@@ -241,7 +241,20 @@ describe('Parser', () => {
     let parser : Parser;
 
     beforeAll( () => {
-        parser = new Parser(Op as any);
+        parser = new Parser( 
+            { 
+                primary : (p) => ({[p.lValue] : {[p.operator] : p.rValue }}), 
+                operator : (op, err) => {
+                    const opSymbol = (Op as any)[op]; 
+                    if(typeof opSymbol === 'undefined'){ 
+                        err(`Could not resolve operator: ${op}`);
+                        return Symbol('noop')
+                    } else {
+                        return opSymbol
+                    }
+                } 
+            }
+        );
     })
 
     test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', 
@@ -251,7 +264,6 @@ describe('Parser', () => {
 
         expect(operationTree).toBeDefined();
         expect(operationTree).toStrictEqual(expectedTree);
-
 
     });
 

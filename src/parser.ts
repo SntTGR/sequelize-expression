@@ -1,5 +1,5 @@
 import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
-import type { PrimaryHook } from './expression';
+import type { Hooks, PrimaryHook } from './expression';
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
 export interface OperationsTree {
@@ -52,17 +52,38 @@ class ParsingContext {
         return new ErrorBundle(this.errors);
     }
 
-    newParserHardError(message: string, token? : Token) {
+    newParserHardError(message: string, token? : Token | Token[]) {
         this.newParserSoftError(message, token);
         return new PanicNotation();
     }
 
-    newParserSoftError(message: string, token? : Token) {
+    newParserSoftError(message: string, token? : Token | Token[]) {
         
-        const posToken = token ? token : this.getCurrentToken();
-        
-        let start = posToken.position ? posToken.position.start : 0;
-        let end = posToken.position ? posToken.position.end : 0;
+        let start : number = 0; 
+        let end : number = 0;
+
+        if(token) {
+            if(Array.isArray(token)){
+                
+                let min = Number.MAX_SAFE_INTEGER;
+                let max = 0;
+    
+                token.forEach( (t) => {
+                    min = t.position && t.position.start < min ? t.position.start : min;
+                    max = t.position && t.position.end > max ? t.position.end : max;
+                })
+
+                start = min;
+                end = max === Number.MAX_SAFE_INTEGER ? 0 : max;
+            } else {
+                start = token.position ? token.position.start : 0;
+                end = token.position ? token.position.end : 0; 
+            }
+
+        } else {
+            start = 0;
+            end = 0;            
+        }
         
         this.errors.push(new ParserError(message, start, end - start + 1 ));
     }
@@ -115,14 +136,21 @@ class ParsingContext {
 
 export class Parser {
     
-    private Ops : ParserOps = {}
-    private hooks : { primary : PrimaryHook } = { primary : () => true }
+    private _hooks : Hooks;
 
-    constructor( ops : ParserOps, hooks? : { primary : PrimaryHook }  ) {
-        this.Ops = ops;
-        if (hooks) {
-            this.hooks = hooks;
-        }
+    constructor(hooks : Hooks ) {
+        this._hooks = hooks;
+    }
+
+    private _operatorMemory : { [op : string] : symbol } = {};
+    private memoizedOperator(op : string, operatorResolver : () => symbol ) : symbol {
+        if (!this._operatorMemory[op]) this._operatorMemory[op] = operatorResolver();
+        return this._operatorMemory[op];
+    }
+
+    public set hooks( hooks : Hooks ) {
+        this._operatorMemory = {};
+        this._hooks = hooks;
     }
 
     public parse( tokenList : Token[] ) : ExpressionResult<OperationsTree> {
@@ -164,45 +192,74 @@ export class Parser {
         //
         // /* ---------------------------------------- */
 
-        const Ops = this.Ops;
-        const hooks = this.hooks;
         const c = new ParsingContext(tokenList);
+        const hooks = this._hooks;
+        const memoizedOperatorGenerator = (op : string, token : Token) => this.memoizedOperator(op, this._hooks.operator.bind(null, op, (message) => c.newParserHardError(message, token)));
 
         // <expression> ::= <andBinary>
-        function expression() : OperationsTree {
+        function expression() : OperationsTree | null {
             return orBinary();
         }
 
         // <orBinary> ::= <andBinary> ( <or> <andBinary> )*
-        function orBinary() : OperationsTree {
-            const lUnary = andBinary();
-            const orGenerator = { [Ops.or] : [lUnary] };
+        function orBinary() : OperationsTree | null {
+            const orGenerator = [andBinary()];
+
+            let lastOrToken : any; // Token
+
             while (c.advanceIfMatch('OR')) {
-                orGenerator[Ops.or].push(andBinary());
+                lastOrToken = c.getPreviousToken();
+                orGenerator.push(andBinary());
             }
-            return orGenerator[Ops.or].length === 1 ? lUnary : orGenerator;
+
+            const validOrGenerator = orGenerator.filter( and => and != null ) as OperationsTree[]
+
+            if(validOrGenerator.length > 1) {
+                const orSymbol = memoizedOperatorGenerator('or', lastOrToken);
+                return { [orSymbol] : validOrGenerator };
+            }
+            
+            if(validOrGenerator.length === 1) return validOrGenerator[0];
+            
+            return null;
         }
 
         // <andBinary> ::= <unary> ( <and> <unary> )*
-        function andBinary() : OperationsTree {
-            const lOrBinary = unary();
-            const andGenerator = { [Ops.and] : [lOrBinary] };
-            while(c.advanceIfMatch( 'AND', 'COMMA' )) {
-                andGenerator[Ops.and].push(unary());
+        function andBinary() : OperationsTree | null {
+            const andGenerator = [unary()];
+
+            let lastAndToken : any; // Token
+
+            while (c.advanceIfMatch('AND', 'COMMA')) {
+                lastAndToken = c.getPreviousToken();
+                andGenerator.push(unary());
             }
-            return andGenerator[Ops.and].length === 1 ? lOrBinary : andGenerator;
+
+            const validAndGenerator = andGenerator.filter( un => un != null ) as OperationsTree[]
+
+            if(validAndGenerator.length > 1) {
+                const andSymbol = memoizedOperatorGenerator('and', lastAndToken);
+                return { [andSymbol] : validAndGenerator };
+            }
+            
+            if(validAndGenerator.length === 1) return validAndGenerator[0];
+            
+            return null;
         }
 
         // <unary> ::= <not> <unary> | <primary>
-        function unary() : OperationsTree {
+        function unary() : OperationsTree | null {
             if (c.advanceIfMatch('NOT')) {
-                return { [Ops.not] : unary() };
+                const notSymbol = memoizedOperatorGenerator('not', c.getPreviousToken());
+                const un = unary();
+                return un != null ? { [notSymbol] : un } : null
             }
+
             return primary();
         }
 
         // <primary> ::= <leftValue> <operator> <rightValue> | "(" <expression> ")"
-        function primary() : OperationsTree {
+        function primary() : OperationsTree | null {
             
             if(c.advanceIfMatch('LEFT_PAR')) {
                 const exp = expression();
@@ -210,17 +267,18 @@ export class Parser {
                 return exp;
             }
 
+            const primaryFirstToken = c.getCurrentToken();
+
             const lValue = leftValue();
             const op = operator();
             const rValue = rightValue();
 
-            const primary = { [lValue] : { [op] : rValue } };
-            
-            // TODO: Simplify hooks API
-            const hookResult = hooks.primary( { lValue, operator : op, rValue } );
-            if(typeof hookResult === 'boolean') return hookResult ? primary : {};
+            const primaryLastToken = c.getPreviousToken();
 
-            return hookResult;
+            const err = (message : string) => c.newParserHardError(message, [primaryFirstToken, primaryLastToken])
+            const primary = hooks.primary( { lValue, operator : op, rValue}, err);
+            
+            return primary ? primary : null;
         }
 
         // <leftValue> ::= <identifier> | <literalValue>
@@ -307,13 +365,9 @@ export class Parser {
                     throw c.newParserHardError(`Unexpected token type of ${operator.type} in operator`, c.getPreviousToken());
             }
 
-            // TODO: Operator hook?
-            if(typeof Ops[op] === 'undefined') {
-                c.newParserSoftError(`Could not resolve operator: ${op}`, c.getPreviousToken());
-                return Symbol('noop');
-            }
+            const opSymbol = memoizedOperatorGenerator(op, c.getPreviousToken());
 
-            return Ops[op];
+            return opSymbol;
         }
 
         let exp;
@@ -321,7 +375,7 @@ export class Parser {
         try {
             
             exp = expression();
-            if(!c.advanceIfMatch('END')) throw c.newParserHardError('Expected end of expression');
+            if(!c.advanceIfMatch('END')) throw c.newParserHardError('Expected end of expression', c.getCurrentToken());
             
         } catch (error) {
             
@@ -329,7 +383,7 @@ export class Parser {
             else throw error;
         }
 
-        return new ExpressionResult(c.hasErrors() ? c.bundleErrors() : exp);
+        return new ExpressionResult(c.hasErrors() ? c.bundleErrors() : exp ? exp : {});
 
     }
 

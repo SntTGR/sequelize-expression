@@ -42,15 +42,7 @@ const steplixOperatorMapper : {[id : string] : string } = {
 // TODO: key; mapKey; mapKeyFormat; mapKeyParse
 // TODO: operators; operatorPrefix; operatorSuffix; operatorFlags; mapOperator
 
-// TODO: map these operations to symbols -> case insensitive
-// 'li' 'like'
-// 'nl' 'notLike'
-// 'in' 'in'
-// 'ni' 'notIn'
-// 'be' 'between'
-// 'nb' 'notBetween'
-
-describe('steplix-quey-filters compatibility', () => {
+describe.skip('steplix-quey-filters compatibility', () => {
 
     let steplixParser : typeof Parser;
     let sequelizeExpression : ExpressionParser;
