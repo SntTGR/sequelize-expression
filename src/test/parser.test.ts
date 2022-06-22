@@ -1,5 +1,8 @@
-import { OperationsTree, Parser, ParserError, ParserOps } from '../parser';
+import { Parser, ParserError } from '../parser';
+
+import type { OperationsTree } from '../parser';
 import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
+
 import { Op } from 'sequelize';
 
 const primaryGenerator = (id : number) : Token[] => {

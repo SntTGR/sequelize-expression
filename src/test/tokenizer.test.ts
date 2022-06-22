@@ -1,6 +1,4 @@
 import { tokenizer, Token, ValueToken, StringToken, NumberToken, TokenizerError } from '../tokenizer';
-import { Op } from 'sequelize';
-import { ErrorBundle } from '../errors';
 
 const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
 [

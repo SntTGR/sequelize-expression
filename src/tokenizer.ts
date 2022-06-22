@@ -8,6 +8,21 @@ export class TokenizerError extends ExpressionError {
     };
 }
 
+
+export interface Token {
+    type : TokenType,
+    position? : { start: number, end: number }
+}
+export interface ValueToken extends Token {
+    value : string | number
+}
+export interface NumberToken extends ValueToken {
+    value : number
+}
+export interface StringToken extends ValueToken {
+    value : string
+}
+
 export type TokenType = 
         
     // Value
@@ -25,21 +40,21 @@ export type TokenType =
     'SEMICOLON'         | // ;
     
     // Basic operations
-    'GT'                | // > or gt
-    'LT'                | // < or lt
-    'EQ'                | // = or eq
-    'NE'                | // != or ne
-    'GTE'               | // >= or gte
-    'LTE'               | // <= or lte
+    'GT'                | // >
+    'LT'                | // <
+    'EQ'                | // =
+    'NE'                | // !=
+    'GTE'               | // >=
+    'LTE'               | // <=
     
     // -------------------------------
 
     // Reserved identifiers
 
     // Logical
-    'NOT'               | // ! or NOT
-    'AND'               | // & or AND (also accepts comma but handled in parser)
-    'OR'                | // | or OR
+    'NOT'               | // !
+    'AND'               | // & or , (comma handled in parser)
+    'OR'                | // |
 
     'END'                 // End of input
 
@@ -66,21 +81,6 @@ const reservedKeywords : {[keyword : string] : Token} = {
     // null
     'null'  : { type:'NULL' },
 
-}
-
-
-export interface Token {
-    type : TokenType,
-    position? : { start: number, end: number }
-}
-export interface NumberToken extends ValueToken {
-    value : number
-}
-export interface StringToken extends ValueToken {
-    value : string
-}
-export interface ValueToken extends Token {
-    value : string | number
 }
 
 class TokenizerContext {

@@ -1,44 +1,39 @@
-import * as t from './tokenizer';
-import * as p from './parser';
-import { ErrorBundle, ExpressionResult } from './errors';
+import { ExpressionResult } from './errors';
 
-type Ops = {[ operation : string] : symbol };
-export type Primary = {
-    [ lValue : string ] : {
-        [ operator : string ] : p.RightValue
-    };
-}
-export type PrimaryValues = {
-    lValue : string,
-    operator : symbol,
-    rValue : p.RightValue
-}
+import { Parser } from './parser'
+import type { RightValue, LeftValue, Operator, PanicNotation, OperationsTree, ParserOps } from './parser';
 
-type errorCallback = (message : string) => p.PanicNotation
+import { tokenizer } from './tokenizer';
+
+type Primary = { [ lValue : string ] : { [ operator : string ] : RightValue } }
+type PrimaryValues = {
+    lValue : LeftValue,
+    operator : Operator,
+    rValue : RightValue
+}
+type Ops = ParserOps
+
+type errorCallback = (message : string) => PanicNotation
 
 export type PrimaryHook = ( primaryValues : PrimaryValues, err : errorCallback ) => Primary | void;
 export type OperatorHook = ( operatorString : string, err : errorCallback ) => symbol; 
 export type Hooks = { primary : PrimaryHook, operator : OperatorHook }; 
 
-
-// TODO: manage types
-
 export class ExpresionParser {
     
-    parser : p.Parser
-
+    parser : Parser
 
     /**
      * @callback errorCallback
      * @param {string} message - Message to show in the resulting error
-     * @returns {p.PanicNotation} - Throwing it signals the parser to panic and make an early return
+     * @returns {PanicNotation} - Throwing it signals the parser to panic and make an early return
      * 
      * 
      * @callback PrimaryHook 
      * @param {PrimaryValues} primaryValues - Object holding the primary values
-     * @param {string} primaryValues.lValue - Identifier of the column
-     * @param {symbol} primaryValues.operator - Symbol of the sequelize operation
-     * @param {p.RightValue} primaryValues.rValue - Value of the primary
+     * @param {LeftValue} primaryValues.lValue - Identifier of the column
+     * @param {Operator} primaryValues.operator - Symbol of the sequelize operation
+     * @param {RightValue} primaryValues.rValue - Value of the primary
      * @param {errorCallback} err - Callback to signal errors to the parser
      * @returns {Primary | void} - Returns the structure that the primary should take or if void, the parser tries to delete it safely from the resulting tree
      * 
@@ -83,26 +78,21 @@ export class ExpresionParser {
         if (!this._hookOperator) throw new Error('Expected operator hook to be defined');
         if (!this._hookPrimary) this._hookPrimary = (p) => ({[p.lValue] : {[p.operator] : p.rValue }});
 
-        this.parser = new p.Parser(this.getHookBundle());
+        this.parser = new Parser(this.getHookBundle());
     }
 
-    parse( input : string ) : ExpressionResult<p.OperationsTree> {
+    parse( input : string ) : ExpressionResult<OperationsTree> {
         
-        const tokensResult = t.tokenizer(input);
-
-        if(!tokensResult.ok) {
-            return new ExpressionResult<p.OperationsTree>(tokensResult.getErrors());
-        }
+        const tokensResult = tokenizer(input);
+        if(!tokensResult.ok) return new ExpressionResult<OperationsTree>(tokensResult.getErrors());
 
         const operationResult = this.parser.parse(tokensResult.getResult());
-        
-
         if(!operationResult.ok) {
             operationResult.getErrors().setInput(input as string);
-            return new ExpressionResult<p.OperationsTree>(operationResult.getErrors())
+            return new ExpressionResult<OperationsTree>(operationResult.getErrors())
         }
 
-        return new ExpressionResult<p.OperationsTree>(operationResult.getResult());
+        return new ExpressionResult<OperationsTree>(operationResult.getResult());
     }
     
     /**

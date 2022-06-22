@@ -1,10 +1,8 @@
 import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
-import type { Hooks, PrimaryHook } from './expression';
+import type { Hooks } from './expression';
+
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
-export interface OperationsTree {
-    [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue
-}
 
 export class ParserError extends ExpressionError {
     constructor(message : string, position : number, length : number){
@@ -18,15 +16,16 @@ export class PanicNotation extends Error {
     constructor() {
         super();
         Object.setPrototypeOf(this, PanicNotation.prototype);
+        this.name = this.constructor.name;
     }
 }
 
-// TODO: manage types
-
+export interface OperationsTree { [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue }
 export type ParserOps = { [operation : string] : symbol };
-type LeftValue = string;
-export type RightValue = string | null | number | RightValue[];
 
+export type Operator = symbol;
+export type LeftValue = string;
+export type RightValue = string | null | number | RightValue[];
 
 class ParsingContext {
         

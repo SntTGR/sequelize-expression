@@ -1,7 +1,9 @@
 import ExpressionParser from '../expression';
 import { Op } from 'sequelize';
-import type { PrimaryHook, OperatorHook, Primary, PrimaryValues } from '../expression';
-import { RightValue, OperationsTree } from '../parser';
+
+import type { PrimaryHook, OperatorHook } from '../expression';
+import type { RightValue, OperationsTree } from '../parser';
+
 const { Parser } = require('steplix-query-filters');
 
 const steplixOpsPatch : { [s : string] : symbol } = {
