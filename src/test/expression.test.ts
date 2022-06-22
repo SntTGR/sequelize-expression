@@ -82,8 +82,6 @@ describe('sequelize-expression.js', () => {
 
     })
 
-    test.todo('initialization with sequelize operations');
-    test.todo('initialization with subset of sequelize operations');
-    test.todo('initialization with custom operations');
+    test.todo('test with sequelize in-memory database')
     
 })

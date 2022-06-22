@@ -1,11 +1,11 @@
 import ExpressionParser from '../expression';
 import { Op } from 'sequelize';
-import type { PrimaryHook, Primary, PrimaryValues } from '../expression';
+import type { PrimaryHook, OperatorHook, Primary, PrimaryValues } from '../expression';
+import { RightValue, OperationsTree } from '../parser';
 const { Parser } = require('steplix-query-filters');
 
-const steplixOpsPatch = {
+const steplixOpsPatch : { [s : string] : symbol } = {
     ...Op,
-
     eq : Op.eq,
     ne : Op.ne,
     gt : Op.gt,
@@ -20,61 +20,62 @@ const steplixOpsPatch = {
     nb : Op.notBetween,
 }
 
-const steplixOperatorMapper : {[id : string] : string } = {
-    eq : 'eq',
-    ne : 'ne',
-    gt : 'gt',
-    gte : 'ge',
-    lt : 'lt',
-    lte : 'le',
-    like : 'li',
-    notLike : 'nl',
-    in : 'in',
-    notIn : 'ni',
-    between : 'be',
-    notBetween : 'nb',
-}
-
-// TODO: feature flag each compatibility features
-// TODO: refactor compatibility features once complete set is finished
-
-// TODO: value; mapValue; mapValueFormat; mapValueParse
-// TODO: key; mapKey; mapKeyFormat; mapKeyParse
-// TODO: operators; operatorPrefix; operatorSuffix; operatorFlags; mapOperator
-
-describe.skip('steplix-quey-filters compatibility', () => {
+describe('steplix-quey-filters compatibility', () => {
 
     let steplixParser : typeof Parser;
     let sequelizeExpression : ExpressionParser;
+    let compatibilityOutput : (o : OperationsTree) => OperationsTree;
+
     
     beforeAll(() => {
-        steplixParser = new Parser();
         
-        sequelizeExpression = new ExpressionParser(steplixOpsPatch as any);
-        sequelizeExpression.hookPrimary = ( primary : PrimaryValues ) => {
-            if (typeof primary.operator.description === 'undefined') throw new Error('Unexpected symbol undefined');
-            
-            let opString = primary.operator.description in steplixOperatorMapper ? steplixOperatorMapper[primary.operator.description] : primary.operator.description;
-            
-            if(primary.rValue === null) {
-                // noop
-            } else if(Array.isArray(primary.rValue)) {
-                
-                if(!primary.rValue.some( v => Array.isArray(v))){
-                    primary.rValue = primary.rValue.map(r=>r!==null?r.toString():'null')
-                }
+        steplixParser = new Parser();
 
-            } else if(primary.rValue !== null) {
-                primary.rValue = primary.rValue.toString()
-            } else {
-                throw new Error('Unexpected type in steplix primary hook');
+        const compatibilityOperator : OperatorHook = (op, err) => {
+            const sOp = steplixOpsPatch[op]
+            if(!sOp) {err(`Could not resolve operator ${op}`); return Symbol('noop')}
+            if(op === 'and' || op === 'or' || op === 'not') return sOp;
+            return Symbol(op);
+        }
+        const compatibilityPrimary : PrimaryHook = (p, err) => {
+            const arrTransform = (itself : any, obj : RightValue) => { 
+                if(Array.isArray(obj)) return obj.map( (i) => itself(itself, i) ) 
+                return obj !== null ? obj.toString() : obj;
             }
-            
-            return { [primary.lValue] : { [opString] : primary.rValue} }
+            const parsedRValue = arrTransform(arrTransform, p.rValue);
+
+            return { [p.lValue] : { [p.operator.description as string] : parsedRValue } }
+        }
+        compatibilityOutput = (o) => {
+            // And Syntax
+            const andSymbol = Object.getOwnPropertySymbols(o).find( k => k.description === 'and' )
+            let parsedTree : any = {};
+            if(andSymbol) {
+                const copyOfO = {...o};
+                const values = copyOfO[andSymbol] as OperationsTree | OperationsTree[]
+                if(Array.isArray(values)) {
+                    values.forEach( (obj) => {
+                        const id = Reflect.ownKeys(obj)[0];
+                        parsedTree[id] = obj[id];
+                    })
+                } else {
+                    const id = Reflect.ownKeys(values)[0];
+                    parsedTree[id] = (values)[id];
+                }
+    
+                delete copyOfO[andSymbol]; 
+                return {...copyOfO, ...parsedTree};
+            }
+            return o;
         };
+        
+
+        sequelizeExpression = new ExpressionParser({hooks:{primary:compatibilityPrimary,operator:compatibilityOperator}});
+
     })
 
     test.each([
+        
         'id eq 1',
         'name ne nico',
         'id gt 1',
@@ -90,15 +91,37 @@ describe.skip('steplix-quey-filters compatibility', () => {
         'column5 be [1;10]',
         'column6 nl _j_%',
         'ColUmn7 nb [1;2]',
-    ])('%s', query => {
+
+        'id eq 1,id2 eq 2',
+        'id eq 1,id2 in [1;2;3]'
+
+    ])('Compatibility of %s', query => {
 
         const outputTree = sequelizeExpression.parse(query).getResult();
         let steplixOutputTree = steplixParser.parse(query);
 
-        // And syntax
-        const expectedTree = Object.keys(steplixOutputTree).length > 1 ? { [Op.and] : Object.entries(steplixOutputTree).map( ([key,value]) => ({ [key] : value }) ) } : steplixOutputTree;
+        const compatibleOutput =  compatibilityOutput(outputTree);
         
-        expect(outputTree).toStrictEqual(expectedTree);
+        expect(compatibleOutput).toStrictEqual(steplixOutputTree);
 
     })
+
+    test.each([
+        
+        ['id eq 1 AND id2 eq 2',                            { id :       { eq : '1' }, id2 : { eq : '2' } }],
+        ['name ne nico OR name2 eq nip',                    { [Op.or] : [{ name : { ne : 'nico' } }, { name2 : { eq : 'nip' } }] } ],
+        ['id in [1,2,[9,[2]]]',                             { id :       { in : ['1','2',['9',['2']]] } }],
+        ['name nl nico% AND (id eq 1 OR id2 eq 2)',         { name :     { nl : 'nico%' }, [Op.or] : [{ id : { eq : '1' } }, { id2 : { eq : '2' }}] }],
+        ['name nl nico% AND (id eq 1 AND id2 eq 2)',        { name :     { nl : 'nico%' }, [Op.and] : [{ id : { eq : '1' } }, { id2 : { eq : '2' }}] }],
+        ['name nl nico% AND !(id eq 1 AND id2 eq 2)',       { name :     { nl : 'nico%' }, [Op.not] : {[Op.and] : [{ id : { eq : '1' } }, { id2 : { eq : '2' }}]}}],
+
+    ])('Functionality of %s', (query, tree) => {
+
+        const outputTree = sequelizeExpression.parse(query).getResult();
+        const compatibleOutput =  compatibilityOutput(outputTree);
+        
+        expect(compatibleOutput).toStrictEqual(tree);
+
+    })
+
 })
