@@ -121,7 +121,6 @@ class ParsingContext {
     getCurrentAndAdvance() : Token {
         return this.tokens[this.state.pos++];
     }
-    // TODO: Read up on type guards
     isValueToken(token : Token) : token is ValueToken {
         return 'value' in token;
     }
@@ -359,7 +358,7 @@ export class Parser {
                 case 'LTE': op = 'lte'; break;
                 case 'IDENTIFIER':
                     if(!c.isStringToken(operator)) throw c.newParserHardError('Expected string in operator', c.getPreviousToken())
-                    op = operator.value.toLowerCase(); break;
+                    op = operator.value; break;
                 default:
                     throw c.newParserHardError(`Unexpected token type of ${operator.type} in operator`, c.getPreviousToken());
             }

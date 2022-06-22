@@ -1,6 +1,6 @@
 import { Parser, ParserError } from '../parser';
 
-import type { OperationsTree } from '../parser';
+import type { OperationsTree, ParserOps } from '../parser';
 import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 
 import { Op } from 'sequelize';
@@ -157,10 +157,10 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         expectedTree : { [Op.or] : [{[Op.not] : { c1 : { [Op.eq] : 1 } }}, { [Op.not] : { [Op.or] : [{ c2 : { [Op.eq] : 2 }}, {c3: { [Op.eq] : 3 }}, {c4: { [Op.eq] : 4 }}] }}] }
     },
     {
-        expression : 'column4 in [1;2;3]',
+        expression : 'column4 iN [1;2;3]',
         tokenList : [
             { type: 'IDENTIFIER', value: 'column4' } as StringToken,
-            { type: 'IDENTIFIER', value: 'in' } as StringToken,
+            { type: 'IDENTIFIER', value: 'iN' } as StringToken,
             { type: 'LEFT_BRACKET' },
             { type: 'NUMBER', value: 1 } as NumberToken,
             { type: 'SEMICOLON' },
@@ -171,6 +171,16 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
             { type: 'END' }
         ],
         expectedTree : { column4 : { [Op.in] : [1,2,3] } }
+    },
+    {
+        expression : 'c1 notilikE %hat',
+        tokenList : [
+            { type: 'IDENTIFIER', value: 'c1' } as StringToken,
+            { type: 'IDENTIFIER', value: 'notilikE' } as StringToken,
+            { type: 'IDENTIFIER', value: '%hat' } as StringToken,
+            { type: 'END' }
+        ],
+        expectedTree : { c1 : { [Op.notILike] : '%hat' } }
     }
 ]
 const operationsErrorsToTest : { expression : string, tokenList : Token[], expectedErrors : string[] }[] = [
@@ -242,13 +252,17 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
 describe('Parser', () => {
     
     let parser : Parser;
+    const lowerCaseOps : ParserOps = {};
 
     beforeAll( () => {
+
+        Object.entries(Op).forEach( ([key, value]) => lowerCaseOps[key.toLowerCase()] = value );
+
         parser = new Parser( 
             { 
                 primary : (p) => ({[p.lValue] : {[p.operator] : p.rValue }}), 
                 operator : (op, err) => {
-                    const opSymbol = (Op as any)[op]; 
+                    const opSymbol = (lowerCaseOps)[op.toLowerCase()]; 
                     if(typeof opSymbol === 'undefined'){ 
                         err(`Could not resolve operator: ${op}`);
                         return Symbol('noop')

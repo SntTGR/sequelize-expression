@@ -57,10 +57,12 @@ export class ExpresionParser {
 
         // Construct default primary from Operators list
         if(options.op) {            
-            const seqOps = options.op;
-
-            this._hookOperator = (op, err) => { 
-                const opSymbol = seqOps[op]; 
+            // lowerCase keys copy
+            const defaultLowerOps : Ops = {};
+            Object.entries(options.op).forEach( ([key, value]) => defaultLowerOps[key.toLowerCase()] = value );
+            
+            this._hookOperator = (op, err) => {     
+                const opSymbol = defaultLowerOps[op.toLowerCase()];
                 if(!opSymbol) {
                     err(`Could not resolve operator: ${op}`);
                     return Symbol('noop')
