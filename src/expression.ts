@@ -5,7 +5,7 @@ import type { RightValue, LeftValue, Operator, PanicNotation, OperationsTree, Pa
 
 import { tokenizer } from './tokenizer';
 
-type Primary = { [ lValue : string ] : { [ operator : string ] : RightValue } }
+export type Primary = { [ lValue : string ] : { [ operator : string ] : RightValue } }
 type PrimaryValues = {
     lValue : LeftValue,
     operator : Operator,
@@ -15,7 +15,7 @@ type Ops = ParserOps
 
 type errorCallback = (message : string) => PanicNotation
 
-export type PrimaryHook = ( primaryValues : PrimaryValues, err : errorCallback ) => Primary | void;
+export type PrimaryHook = ( primaryValues : PrimaryValues, err : errorCallback ) => Promise<Primary | void> | Primary | void ;
 export type OperatorHook = ( operatorString : string, err : errorCallback ) => symbol; 
 export type Hooks = { primary : PrimaryHook, operator : OperatorHook }; 
 
@@ -83,12 +83,12 @@ export class ExpresionParser {
         this.parser = new Parser(this.getHookBundle());
     }
 
-    parse( input : string ) : ExpressionResult<OperationsTree> {
+    async parse( input : string ) : Promise<ExpressionResult<OperationsTree>> {
         
         const tokensResult = tokenizer(input);
         if(!tokensResult.ok) return new ExpressionResult<OperationsTree>(tokensResult.getErrors());
 
-        const operationResult = this.parser.parse(tokensResult.getResult());
+        const operationResult = await this.parser.parse(tokensResult.getResult());
         if(!operationResult.ok) {
             operationResult.getErrors().setInput(input as string);
             return new ExpressionResult<OperationsTree>(operationResult.getErrors())

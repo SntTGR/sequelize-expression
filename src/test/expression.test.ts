@@ -10,9 +10,9 @@ describe('sequelize-expression.js', () => {
     describe('complete parsing tests', () => {
         const parser = new Expression({op:Op as any});
 
-        test('Precedence of logical operators', () => {
-            const t1 = parser.parse('(a eq 1 and b eq 2) or c eq 3').getResult();
-            const t2 = parser.parse(' a eq 1 and b eq 2  or c eq 3').getResult();
+        test('Precedence of logical operators', async () => {
+            const t1 = (await parser.parse('(a eq 1 and b eq 2) or c eq 3')).getResult();
+            const t2 = (await parser.parse(' a eq 1 and b eq 2  or c eq 3')).getResult();
             expect(t1).toStrictEqual(t2);
         });
     })
@@ -25,24 +25,26 @@ describe('sequelize-expression.js', () => {
             parser = new Expression( { op:Op as any } );
         })
 
-        test('Changing hooks', () => {
+        test('Changing hooks', async () => {
             
-            const t1 = parser.parse('a eq 1').getResult();
+
+
+            const t1 = (await parser.parse('a eq 1')).getResult();
             
             parser.hookOperator = (op) => Op['eq'];
 
-            const t2 = parser.parse('a foo 1').getResult();
+            const t2 = (await parser.parse('a foo 1')).getResult();
             
             expect(t1).toStrictEqual(t2);
         })
 
-        test('Hook primary error', () => {
+        test('Hook primary error', async () => {
 
             parser.hookPrimary = (p, err) => {
                 if(p.rValue === 1) err('Soft error!');
                 return { [Symbol('test')] : { 'test' : 'test' } }
             }
-            const t = parser.parse('c lt 1 AND b eq 3, a eq 1');
+            const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
             expect(t.ok).toBe(false);
             t.getErrors().toString()
@@ -50,14 +52,14 @@ describe('sequelize-expression.js', () => {
 
         })
 
-        test('Hook hard error', () => {
+        test('Hook hard error', async () => {
 
             parser.hookPrimary = (p, err) => {
                 if(p.rValue === 1) throw err('Hard error!');
                 return { [Symbol('test')] : { 'test' : 'test' } }
             }
 
-            const t = parser.parse('c lt 1 AND b eq 3, a eq 1');
+            const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
             expect(t.ok).toBe(false);
             t.getErrors().toString();
@@ -65,13 +67,13 @@ describe('sequelize-expression.js', () => {
             
         })
 
-        test('Hook primary ignore', () => {
+        test('Hook primary ignore', async () => {
 
             parser.hookPrimary = p => {
                 if(p.rValue !== 1) return { [p.operator] : { [p.lValue] : p.rValue } }
             }
 
-            const t = parser.parse('c lt 1 AND b eq 3, a eq 1');
+            const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
             expect(t.ok).toBe(true);
             expect(t.getResult()).toEqual({

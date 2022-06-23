@@ -97,9 +97,9 @@ describe('steplix-quey-filters compatibility', () => {
         'id eq 1,id2 eq 2',
         'id eq 1,id2 in [1;2;3]'
 
-    ])('Compatibility of %s', query => {
+    ])('Compatibility of %s', async query => {
 
-        const outputTree = sequelizeExpression.parse(query).getResult();
+        const outputTree = (await sequelizeExpression.parse(query)).getResult();
         let steplixOutputTree = steplixParser.parse(query);
 
         const compatibleOutput =  compatibilityOutput(outputTree);
@@ -117,9 +117,9 @@ describe('steplix-quey-filters compatibility', () => {
         ['name nl nico% AND (id eq 1 AND id2 eq 2)',        { name :     { nl : 'nico%' }, [Op.and] : [{ id : { eq : '1' } }, { id2 : { eq : '2' }}] }],
         ['name nl nico% AND !(id eq 1 AND id2 eq 2)',       { name :     { nl : 'nico%' }, [Op.not] : {[Op.and] : [{ id : { eq : '1' } }, { id2 : { eq : '2' }}]}}],
 
-    ])('Functionality of %s', (query, tree) => {
+    ])('Functionality of %s', async (query, tree) => {
 
-        const outputTree = sequelizeExpression.parse(query).getResult();
+        const outputTree = (await sequelizeExpression.parse(query)).getResult();
         const compatibleOutput =  compatibilityOutput(outputTree);
         
         expect(compatibleOutput).toStrictEqual(tree);

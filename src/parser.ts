@@ -1,5 +1,5 @@
 import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
-import type { Hooks } from './expression';
+import type { Hooks, Primary } from './expression';
 
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
@@ -21,11 +21,24 @@ export class PanicNotation extends Error {
 }
 
 export interface OperationsTree { [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue }
+
+export type PromisedOperationsTree = { [operation : string | symbol] : PromisedOperationsTree | PromisedOperationsTree[] | RightValue } | Promise<Primary | void>
+
 export type ParserOps = { [operation : string] : symbol };
 
 export type Operator = symbol;
 export type LeftValue = string;
 export type RightValue = string | null | number | RightValue[];
+
+
+// Util
+function isPromise<T>(p : Promise<T> | T) : p is Promise<T> {
+    if (typeof p === 'object' && typeof (p as Promise<T>).then === 'function') {
+      return true;
+    }
+
+    return false;
+}
 
 class ParsingContext {
         
@@ -33,6 +46,7 @@ class ParsingContext {
     public state : {pos : number, tPos : number, length : number }
 
     private errors : ParserError[] = [];
+    private promiseFlag : boolean = false;
     
     constructor( tokenList : Token[] ) {
         this.tokens = tokenList;
@@ -130,13 +144,21 @@ class ParsingContext {
     isNumberToken(token : Token) : token is NumberToken {
         return typeof (token as NumberToken).value === 'number';
     }
+
+    setPromiseFlag(state : boolean) {
+        this.promiseFlag = state;
+    }
+    hasPromises() : boolean {
+        return this.promiseFlag
+    }
+
 }
 
 export class Parser {
     
     private _hooks : Hooks;
 
-    constructor(hooks : Hooks ) {
+    constructor(hooks : Hooks) {
         this._hooks = hooks;
     }
 
@@ -151,7 +173,7 @@ export class Parser {
         this._hooks = hooks;
     }
 
-    public parse( tokenList : Token[] ) : ExpressionResult<OperationsTree> {
+    public async parse( tokenList : Token[] ) : Promise<ExpressionResult<OperationsTree>> {
         
         // /* ------------- Expressions ------------ */
         //    
@@ -195,12 +217,12 @@ export class Parser {
         const memoizedOperatorGenerator = (op : string, token : Token) => this.memoizedOperator(op, this._hooks.operator.bind(null, op, (message) => c.newParserHardError(message, token)));
 
         // <expression> ::= <andBinary>
-        function expression() : OperationsTree | null {
+        function expression() : PromisedOperationsTree | null {
             return orBinary();
         }
 
         // <orBinary> ::= <andBinary> ( <or> <andBinary> )*
-        function orBinary() : OperationsTree | null {
+        function orBinary() : PromisedOperationsTree | null {
             const orGenerator = [andBinary()];
 
             let lastOrToken : any; // Token
@@ -210,7 +232,7 @@ export class Parser {
                 orGenerator.push(andBinary());
             }
 
-            const validOrGenerator = orGenerator.filter( and => and != null ) as OperationsTree[]
+            const validOrGenerator = orGenerator.filter( and => and != null ) as PromisedOperationsTree[]
 
             if(validOrGenerator.length > 1) {
                 const orSymbol = memoizedOperatorGenerator('or', lastOrToken);
@@ -223,7 +245,7 @@ export class Parser {
         }
 
         // <andBinary> ::= <unary> ( <and> <unary> )*
-        function andBinary() : OperationsTree | null {
+        function andBinary() : PromisedOperationsTree | null {
             const andGenerator = [unary()];
 
             let lastAndToken : any; // Token
@@ -233,7 +255,7 @@ export class Parser {
                 andGenerator.push(unary());
             }
 
-            const validAndGenerator = andGenerator.filter( un => un != null ) as OperationsTree[]
+            const validAndGenerator = andGenerator.filter( un => un != null ) as PromisedOperationsTree[]
 
             if(validAndGenerator.length > 1) {
                 const andSymbol = memoizedOperatorGenerator('and', lastAndToken);
@@ -246,7 +268,7 @@ export class Parser {
         }
 
         // <unary> ::= <not> <unary> | <primary>
-        function unary() : OperationsTree | null {
+        function unary() : PromisedOperationsTree | null {
             if (c.advanceIfMatch('NOT')) {
                 const notSymbol = memoizedOperatorGenerator('not', c.getPreviousToken());
                 const un = unary();
@@ -257,7 +279,7 @@ export class Parser {
         }
 
         // <primary> ::= <leftValue> <operator> <rightValue> | "(" <expression> ")"
-        function primary() : OperationsTree | null {
+        function primary() : PromisedOperationsTree | null {
             
             if(c.advanceIfMatch('LEFT_PAR')) {
                 const exp = expression();
@@ -276,7 +298,11 @@ export class Parser {
             const err = (message : string) => c.newParserHardError(message, [primaryFirstToken, primaryLastToken])
             const primary = hooks.primary( { lValue, operator : op, rValue}, err);
             
-            return primary ? primary : null;
+            if(isPromise(primary) ) c.setPromiseFlag(true);
+
+            if(typeof primary === 'undefined') return null;
+
+            return primary;
         }
 
         // <leftValue> ::= <identifier> | <literalValue>
@@ -368,20 +394,69 @@ export class Parser {
             return opSymbol;
         }
 
-        let exp;
+        let exp : PromisedOperationsTree | null;
+
+
+        const promiseCleaner = async (itself : any, object : PromisedOperationsTree ) => {
+            if (isPromise(object as Promise<Primary | void>)) return await object;
+            if (Array.isArray(object)){
+                
+                const arrCopy = [];
+
+                for (let i = 0; i < object.length; i++) {
+
+                    const subObject = await itself(itself, object[i])
+                    if(typeof subObject === 'undefined') continue;
+
+                    arrCopy.push(subObject);
+                }
+
+                if(arrCopy.length === 0) return;
+
+                return arrCopy;
+            }
+            if (typeof object === 'undefined') return;
+            if (typeof object === 'object') {
+
+                const objectCopy : PromisedOperationsTree = {};
+
+                // Traverse all keys
+                const objectKeys = Reflect.ownKeys(object);
+
+                for (let i = 0; i < objectKeys.length; i++) {
+                    
+                    const subObject = await itself(itself, (object as any)[objectKeys[i]]);
+                    if(typeof subObject === 'undefined') continue;
+                    
+                    objectCopy[objectKeys[i]] = subObject;
+
+                }
+
+                if (Reflect.ownKeys(objectCopy).length === 0) return;
+
+                return objectCopy;
+
+            }
+
+            return object
+        }
+
 
         try {
             
             exp = expression();
             if(!c.advanceIfMatch('END')) throw c.newParserHardError('Expected end of expression', c.getCurrentToken());
-            
-        } catch (error) {
-            
+
+            if(exp !== null) {
+                exp = await promiseCleaner(promiseCleaner, exp) as any;
+            }
+
+        } catch (error) {            
             if(error instanceof PanicNotation) return new ExpressionResult<OperationsTree>(c.bundleErrors()) 
             else throw error;
         }
 
-        return new ExpressionResult(c.hasErrors() ? c.bundleErrors() : exp ? exp : {});
+        return new ExpressionResult(c.hasErrors() ? c.bundleErrors() : exp ? exp as OperationsTree : {});
 
     }
 

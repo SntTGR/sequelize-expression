@@ -4,6 +4,7 @@ import type { OperationsTree, ParserOps } from '../parser';
 import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 
 import { Op } from 'sequelize';
+import type { Primary, PrimaryHook } from '../expression';
 
 const primaryGenerator = (id : number) : Token[] => {
     return [{ type: 'IDENTIFIER', value: `c${id}` } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: id} as ValueToken]
@@ -252,6 +253,7 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
 describe('Parser', () => {
     
     let parser : Parser;
+    let parserWithPromises : Parser
     const lowerCaseOps : ParserOps = {};
 
     beforeAll( () => {
@@ -275,19 +277,19 @@ describe('Parser', () => {
     })
 
     test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', 
-        (_, tokenList, expectedTree) => {
+        async (_, tokenList, expectedTree) => {
 
-        const operationTree = parser.parse(tokenList as Token[]).getResult();
+            const operationTree = (await parser.parse(tokenList as Token[])).getResult();
 
-        expect(operationTree).toBeDefined();
-        expect(operationTree).toStrictEqual(expectedTree);
+            expect(operationTree).toBeDefined();
+            expect(operationTree).toStrictEqual(expectedTree);
 
     });
 
     test.each( operationsErrorsToTest.map( o => [o.expression, o.tokenList, o.expectedErrors] ))('Expecting errors of %s', 
-        (expression, tokenList, expectedErrors) => {
+        async (expression, tokenList, expectedErrors) => {
 
-        const parserResult = parser.parse(tokenList as Token[])
+        const parserResult = await parser.parse(tokenList as Token[])
 
         expect(parserResult.ok).toBe(false);
         const sortedErrors = parserResult.getErrors().errors.map(e=>e.message).sort();
@@ -299,4 +301,50 @@ describe('Parser', () => {
         expect(parserResult.getErrors().errors.every(e=>e instanceof ParserError)).toBe(true);
 
     })
+
+
+    describe('With promises', () => {
+        
+        beforeAll(() => {
+
+            const primaryHook : PrimaryHook = (p) => {
+                return new Promise( (res, rej) => {
+
+                    const primary : Primary = {[p.lValue] : {[p.operator] : p.rValue }}
+                    const resWithPrimary = res.bind(null, primary)
+
+                    setTimeout(
+                        resWithPrimary,
+                        1000);
+                });
+            }
+
+            parserWithPromises = new Parser( 
+                { 
+                    primary : primaryHook,
+                    operator : (op, err) => {
+                        const opSymbol = (lowerCaseOps)[op.toLowerCase()]; 
+                        if(typeof opSymbol === 'undefined'){ 
+                            err(`Could not resolve operator: ${op}`);
+                            return Symbol('noop')
+                        } else {
+                            return opSymbol
+                        }
+                    } 
+                }
+            );
+
+        })
+
+        test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('With primary promises %s',
+            async (_, tokenList, expectedTree) => {
+    
+                const operationTree = (await parserWithPromises.parse(tokenList as Token[])).getResult();
+    
+                expect(operationTree).toBeDefined();
+                expect(operationTree).toStrictEqual(expectedTree);
+            }
+        )
+    })
+
 })
