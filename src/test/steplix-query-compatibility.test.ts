@@ -50,22 +50,23 @@ describe('steplix-quey-filters compatibility', () => {
         }
         compatibilityOutput = (o) => {
             // And Syntax
+            // TODO: Refactor me
             const andSymbol = Object.getOwnPropertySymbols(o).find( k => k.description === 'and' )
             let parsedTree : any = {};
             if(andSymbol) {
                 const copyOfO = {...o};
-                const values = copyOfO[andSymbol] as OperationsTree | OperationsTree[]
+                const values = (copyOfO as any)[andSymbol as any] as OperationsTree | OperationsTree[]
                 if(Array.isArray(values)) {
                     values.forEach( (obj) => {
                         const id = Reflect.ownKeys(obj)[0];
-                        parsedTree[id] = obj[id];
+                        parsedTree[id] = (obj as any)[id as any];
                     })
                 } else {
                     const id = Reflect.ownKeys(values)[0];
-                    parsedTree[id] = (values)[id];
+                    parsedTree[id] = (values)[id as any];
                 }
     
-                delete copyOfO[andSymbol]; 
+                delete (copyOfO as any)[andSymbol as any]; 
                 return {...copyOfO, ...parsedTree};
             }
             return o;

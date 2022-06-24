@@ -306,16 +306,12 @@ describe('Parser', () => {
     describe('With promises', () => {
         
         beforeAll(() => {
-
             const primaryHook : PrimaryHook = (p) => {
                 return new Promise( (res, rej) => {
-
                     const primary : Primary = {[p.lValue] : {[p.operator] : p.rValue }}
-                    const resWithPrimary = res.bind(null, primary)
-
                     setTimeout(
-                        resWithPrimary,
-                        1000);
+                        () => res(primary),
+                        50);
                 });
             }
 
@@ -338,13 +334,15 @@ describe('Parser', () => {
 
         test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('With primary promises %s',
             async (_, tokenList, expectedTree) => {
-    
+                
                 const operationTree = (await parserWithPromises.parse(tokenList as Token[])).getResult();
     
                 expect(operationTree).toBeDefined();
                 expect(operationTree).toStrictEqual(expectedTree);
-            }
+            }, 100
         )
     })
+
+    test.todo('Test void and promise void results')
 
 })

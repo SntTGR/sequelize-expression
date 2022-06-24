@@ -85,6 +85,8 @@ export class ExpresionParser {
 
     async parse( input : string ) : Promise<ExpressionResult<OperationsTree>> {
         
+        // TODO: cleanup return api
+
         const tokensResult = tokenizer(input);
         if(!tokensResult.ok) return new ExpressionResult<OperationsTree>(tokensResult.getErrors());
 

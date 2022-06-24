@@ -20,9 +20,20 @@ export class PanicNotation extends Error {
     }
 }
 
-export interface OperationsTree { [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue }
+class PrimaryWrapper {
+    private value;
+    constructor( primary : Promise<Primary | void> ) {
+        this.value = primary;
+    }
+    resolve() : Promise<Primary | void>{
+        return this.value;
+    }
+}
 
-export type PromisedOperationsTree = { [operation : string | symbol] : PromisedOperationsTree | PromisedOperationsTree[] | RightValue } | Promise<Primary | void>
+// TODO: revise types
+export type OperationsTree = Primary | OperationsTree[] | { [operation : string | symbol] : OperationsTree | OperationsTree[] | RightValue }
+
+export type PromisedOperationsTree = { [operation : string | symbol] : PromisedOperationsTree | PromisedOperationsTree[] | RightValue } | PrimaryWrapper
 
 export type ParserOps = { [operation : string] : symbol };
 
@@ -297,12 +308,9 @@ export class Parser {
 
             const err = (message : string) => c.newParserHardError(message, [primaryFirstToken, primaryLastToken])
             const primary = hooks.primary( { lValue, operator : op, rValue}, err);
-            
-            if(isPromise(primary) ) c.setPromiseFlag(true);
-
             if(typeof primary === 'undefined') return null;
 
-            return primary;
+            return new PrimaryWrapper( isPromise(primary) ? primary : Promise.resolve(primary))
         }
 
         // <leftValue> ::= <identifier> | <literalValue>
@@ -397,49 +405,76 @@ export class Parser {
         let exp : PromisedOperationsTree | null;
 
 
-        const promiseCleaner = async (itself : any, object : PromisedOperationsTree ) => {
-            if (isPromise(object as Promise<Primary | void>)) return await object;
-            if (Array.isArray(object)){
-                
-                const arrCopy = [];
+        type PromiseCleaner = (itself : PromiseCleaner, subTree : PromisedOperationsTree) => Promise<OperationsTree | void>;
 
-                for (let i = 0; i < object.length; i++) {
-
-                    const subObject = await itself(itself, object[i])
+        const promiseCleaner : PromiseCleaner = async (itself, subtree) => {
+            if (subtree instanceof PrimaryWrapper) return await subtree.resolve();
+            if (typeof subtree === 'undefined') return;
+            if (Array.isArray(subtree)) {
+                const arrCopy : OperationsTree[] = [];
+                // Traverse all indexes
+                for (let i = 0; i < subtree.length; i++) {
+                    const subObject = await itself(itself, subtree[i])
                     if(typeof subObject === 'undefined') continue;
-
                     arrCopy.push(subObject);
                 }
-
                 if(arrCopy.length === 0) return;
-
                 return arrCopy;
             }
-            if (typeof object === 'undefined') return;
-            if (typeof object === 'object') {
-
-                const objectCopy : PromisedOperationsTree = {};
-
+            if (typeof subtree === 'object') {
+                
+                const subtreeCopy : OperationsTree = {};
                 // Traverse all keys
-                const objectKeys = Reflect.ownKeys(object);
+                const subtreeKeys = Reflect.ownKeys(subtree);
 
-                for (let i = 0; i < objectKeys.length; i++) {
-                    
-                    const subObject = await itself(itself, (object as any)[objectKeys[i]]);
+                for (let i = 0; i < subtreeKeys.length; i++) {
+                    const subObject = await itself(itself, (subtree as any)[subtreeKeys[i]]);
                     if(typeof subObject === 'undefined') continue;
-                    
-                    objectCopy[objectKeys[i]] = subObject;
-
+                    subtreeCopy[ (subtreeKeys as any)[i] ] = subObject;
                 }
 
-                if (Reflect.ownKeys(objectCopy).length === 0) return;
+                if (Reflect.ownKeys(subtreeCopy).length === 0) return;
 
-                return objectCopy;
-
+                return subtreeCopy;
             }
-
-            return object
+            throw new Error('Error cleaning up OperationsTree');
         }
+        
+        // async (itself, object) => {
+        //     if (object instanceof PrimaryWrapper) return await object.resolve();
+        //     if (typeof object === 'undefined') return;
+        //     if (Array.isArray(object)){
+                
+        //         const arrCopy = [];
+
+        //         // Traverse all indexes
+        //         for (let i = 0; i < object.length; i++) {
+        //             const subObject = await itself(itself, object[i])
+        //             if(typeof subObject === 'undefined') continue;
+        //             arrCopy.push(subObject);
+        //         }
+
+        //         if(arrCopy.length === 0) return;
+
+        //         return arrCopy;
+        //     }
+        //     if (typeof object === 'object') {
+        //         const objectCopy : PromisedOperationsTree = {};
+        //         // Traverse all keys
+        //         const objectKeys = Reflect.ownKeys(object);
+
+        //         for (let i = 0; i < objectKeys.length; i++) {
+        //             const subObject = await itself(itself, (object as any)[objectKeys[i]]);
+        //             if(typeof subObject === 'undefined') continue;
+        //             objectCopy[objectKeys[i]] = subObject;
+        //         }
+
+        //         if (Reflect.ownKeys(objectCopy).length === 0) return;
+
+        //         return objectCopy;
+        //     }
+        //     return object;
+        // }
 
 
         try {
