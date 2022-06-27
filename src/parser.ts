@@ -3,7 +3,6 @@ import type { Hooks, Primary } from './expression';
 
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
-
 export class ParserError extends ExpressionError {
     constructor(message : string, position : number, length : number){
         super(message, position, length)
@@ -20,6 +19,8 @@ export class PanicNotation extends Error {
     }
 }
 
+// Wrapper to identify primary bundles on the cleanup phase
+// NOTE: Might refactor into something else.
 class PrimaryWrapper {
     private value;
     constructor( primary : Promise<Primary | void> ) {
@@ -440,43 +441,6 @@ export class Parser {
             throw new Error('Error cleaning up OperationsTree');
         }
         
-        // async (itself, object) => {
-        //     if (object instanceof PrimaryWrapper) return await object.resolve();
-        //     if (typeof object === 'undefined') return;
-        //     if (Array.isArray(object)){
-                
-        //         const arrCopy = [];
-
-        //         // Traverse all indexes
-        //         for (let i = 0; i < object.length; i++) {
-        //             const subObject = await itself(itself, object[i])
-        //             if(typeof subObject === 'undefined') continue;
-        //             arrCopy.push(subObject);
-        //         }
-
-        //         if(arrCopy.length === 0) return;
-
-        //         return arrCopy;
-        //     }
-        //     if (typeof object === 'object') {
-        //         const objectCopy : PromisedOperationsTree = {};
-        //         // Traverse all keys
-        //         const objectKeys = Reflect.ownKeys(object);
-
-        //         for (let i = 0; i < objectKeys.length; i++) {
-        //             const subObject = await itself(itself, (object as any)[objectKeys[i]]);
-        //             if(typeof subObject === 'undefined') continue;
-        //             objectCopy[objectKeys[i]] = subObject;
-        //         }
-
-        //         if (Reflect.ownKeys(objectCopy).length === 0) return;
-
-        //         return objectCopy;
-        //     }
-        //     return object;
-        // }
-
-
         try {
             
             exp = expression();

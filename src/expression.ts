@@ -1,9 +1,9 @@
-import { ExpressionResult } from './errors';
-
+import { ErrorBundle, ExpressionResult } from './errors';
 import { Parser } from './parser'
+import { tokenizer } from './tokenizer';
+
 import type { RightValue, LeftValue, Operator, PanicNotation, OperationsTree, ParserOps } from './parser';
 
-import { tokenizer } from './tokenizer';
 
 export type Primary = { [ lValue : string ] : { [ operator : string ] : RightValue } }
 type PrimaryValues = {
@@ -85,20 +85,35 @@ export class ExpresionParser {
 
     async parse( input : string ) : Promise<ExpressionResult<OperationsTree>> {
         
-        // TODO: cleanup return api
+        const expressionErrors = new ErrorBundle([], input);
+
+        // Tokenizer Step
 
         const tokensResult = tokenizer(input);
-        if(!tokensResult.ok) return new ExpressionResult<OperationsTree>(tokensResult.getErrors());
-
-        const operationResult = await this.parser.parse(tokensResult.getResult());
-        if(!operationResult.ok) {
-            operationResult.getErrors().setInput(input as string);
-            return new ExpressionResult<OperationsTree>(operationResult.getErrors())
+        if(!tokensResult.ok) {
+            expressionErrors.push(...tokensResult.getErrors().errors);
+            return new ExpressionResult<OperationsTree>(expressionErrors);
         }
 
-        return new ExpressionResult<OperationsTree>(operationResult.getResult());
+        const tokenList = tokensResult.getResult();
+
+        // Parser Step
+
+        const operationResult = await this.parser.parse(tokenList);
+        if(!operationResult.ok) {
+            expressionErrors.push(...operationResult.getErrors().errors);
+            return new ExpressionResult<OperationsTree>(expressionErrors);
+        }
+
+        const parserTree = operationResult.getResult();
+
+        // Results
+
+        if (expressionErrors.hasErrors()) return new ExpressionResult<OperationsTree>(expressionErrors);
+        return new ExpressionResult<OperationsTree>(parserTree);
+
     }
-    
+
     /**
      * Sets the primary hook, the function is called just before the end of the primary resolution. Depending on the returned value of the hook different effects happen.
      * 

@@ -45,8 +45,6 @@ export class ExpressionResult <Result> {
 
 export class ErrorBundle {
 
-    // NOTE: Might refactor later
-
     errors : ExpressionError[];
     private input : string;
 
@@ -55,17 +53,20 @@ export class ErrorBundle {
         this.input = input ? input : '';
     }
 
-    setInput(input : string) {
-        this.input = input;
+    push( ...errors : ExpressionError[] ) : number {
+        this.errors.push(...errors);
+        return this.errors.length;
+    }
+
+    hasErrors() : boolean {
+        return this.errors.length > 0;
     }
 
     toString() : string {
         return this.errors.map( (e,i) => {
-
-            return `Err ${i}: ${e.name} - ${e.message}` + ` at ${e.position}:${e.position+e.length}` + '\n' +
-            `${this.input}` + '\n' +
-            ` `.repeat(e.position) + '^'.repeat(e.length)
-
+            return `Err ${i}: ${e.name} - ${e.message}` + ` at ${e.position}:${e.position+e.length}` 
+            + (this.input ? + '\n' + `${this.input}` + '\n' +
+            ` `.repeat(e.position) + '^'.repeat(e.length) : '')
         }).join('\n\n');
     }
 

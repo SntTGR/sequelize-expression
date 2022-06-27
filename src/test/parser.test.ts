@@ -29,6 +29,14 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         expectedTree : { column2 : { [Op.eq] : 3 } }
     },
     {
+        expression : 'column2 EQ -3',
+        tokenList : [
+            { type: 'IDENTIFIER', value: 'column2' } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: -3} as ValueToken, 
+            { type: 'END' }
+        ],
+        expectedTree : { column2 : { [Op.eq] : -3 } }
+    },
+    {
         expression : 'c1 eq 1 and c2 eq 2 and c3 eq 3 or ( c4 eq 4 or c5 eq 5 and c6 eq 6 )',
         tokenList : [
             ...(primaryGenerator(1)),
@@ -295,9 +303,7 @@ describe('Parser', () => {
         const sortedErrors = parserResult.getErrors().errors.map(e=>e.message).sort();
     
         expect(sortedErrors).toEqual((expectedErrors as string[]).sort());
-        parserResult.getErrors().setInput(expression as string);
-        parserResult.getErrors().toString();
-
+        
         expect(parserResult.getErrors().errors.every(e=>e instanceof ParserError)).toBe(true);
 
     })

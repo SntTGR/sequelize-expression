@@ -58,9 +58,6 @@ export type TokenType =
 
     'END'                 // End of input
 
-                          // NOTE: maybe add more, make it retrocompatible with steplix filter
-
-
 const reservedKeywords : {[keyword : string] : Token} = {
     
     // Reserved keywords are case insensitive
