@@ -1,6 +1,8 @@
 import ExpressionParser from '../expression';
 import { Op } from 'sequelize';
 
+import _ from './setup';
+
 import type { PrimaryHook, OperatorHook } from '../expression';
 import type { RightValue, OperationsTree } from '../parser';
 
@@ -100,7 +102,9 @@ describe('steplix-quey-filters compatibility', () => {
 
     ])('Compatibility of %s', async query => {
 
-        const outputTree = (await sequelizeExpression.parse(query)).getResult();
+        const result = await sequelizeExpression.parse(query);
+        expect(result).not.toResultHaveErrors();
+        const outputTree = result.getResult();
         let steplixOutputTree = steplixParser.parse(query);
 
         const compatibleOutput =  compatibilityOutput(outputTree);
@@ -120,7 +124,9 @@ describe('steplix-quey-filters compatibility', () => {
 
     ])('Functionality of %s', async (query, tree) => {
 
-        const outputTree = (await sequelizeExpression.parse(query)).getResult();
+        const result = await sequelizeExpression.parse(query);
+        expect(result).not.toResultHaveErrors();
+        const outputTree = result.getResult();
         const compatibleOutput =  compatibilityOutput(outputTree);
         
         expect(compatibleOutput).toStrictEqual(tree);

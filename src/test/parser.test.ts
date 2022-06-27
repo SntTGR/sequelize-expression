@@ -1,13 +1,18 @@
-import { Parser, ParserError } from '../parser';
+import { Parser } from '../parser';
 
 import type { OperationsTree, ParserOps } from '../parser';
 import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 
+import _ from './setup';
+
 import { Op } from 'sequelize';
 import type { Primary, PrimaryHook } from '../expression';
 
-const primaryGenerator = (id : number) : Token[] => {
-    return [{ type: 'IDENTIFIER', value: `c${id}` } as ValueToken, { type: 'EQ' }, { type: 'NUMBER', value: id} as ValueToken]
+const primaryGenerator = (id : number | string) : Token[] => {
+
+    const rV = typeof id === 'string' ? ({ type: 'LITERAL_VALUE', value : id } as StringToken) : ({ type: 'NUMBER', value : id } as NumberToken)
+
+    return [{ type: 'IDENTIFIER', value: `c${id}` } as ValueToken, { type: 'EQ' }, rV]
 }
 
 const operationsToTest : { expression : string, tokenList : Token[], expectedTree : OperationsTree }[] =
@@ -190,6 +195,15 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
             { type: 'END' }
         ],
         expectedTree : { c1 : { [Op.notILike] : '%hat' } }
+    },
+    {
+        expression : '()',
+        tokenList : [
+            { type: 'LEFT_PAR'},
+            { type: 'RIGHT_PAR'},
+            { type: 'END' },
+        ],
+        expectedTree : {}
     }
 ]
 const operationsErrorsToTest : { expression : string, tokenList : Token[], expectedErrors : string[] }[] = [
@@ -257,6 +271,70 @@ const operationsErrorsToTest : { expression : string, tokenList : Token[], expec
         expectedErrors: ['Expected an identifier']
     },
 ]
+const operationWithVoidsToTest : { expression : string, tokenList : Token[], expectedTree : OperationsTree }[] = [
+    {
+        expression : 'c1 eq 1 and c2 eq 2 and c3 eq 3 or ( cvoid4 eq "void4" or cvoid5 eq "void5" and cvoid6 eq "void6" )',
+        tokenList : [
+            ...(primaryGenerator(1)),
+            { type: 'AND'},
+            ...(primaryGenerator(2)),
+            { type: 'AND'},
+            ...(primaryGenerator(3)),
+            { type: 'OR'},
+            { type: 'LEFT_PAR'},
+            // ...(primaryGenerator(`void4`)),
+            // { type: 'OR'},
+            // ...(primaryGenerator(`void5`)),
+            // { type: 'AND'},
+            // ...(primaryGenerator(`void6`)),
+            { type: 'RIGHT_PAR'},
+            { type: 'END' }
+        ],
+        expectedTree : // {
+            // [Op.or] : [
+                { [Op.and] : 
+                    [
+                        { c1 : { [Op.eq] : 1 } },
+                        { c2 : { [Op.eq] : 2 } },
+                        { c3 : { [Op.eq] : 3 } },
+                    ] 
+                },
+                // { 
+                    // [Op.or] : 
+                    // [
+                    //     { c4 : { [Op.eq] : 4 } },
+                    //     { [Op.and] : 
+                    //         [
+                    //             { c5 : { [Op.eq] : 5 } },
+                    //             { c6 : { [Op.eq] : 6 } },
+                    //         ] 
+                    //     }
+                    // ]
+                // }
+    
+            // ]
+      
+        // }
+    },
+    {
+        expression : '! cvoid1 eq 1 AND ( c2 eq 2 AND c3 eq 3 AND c4 eq 4 )',
+        tokenList : [
+            // { type: 'NOT' }, ...(primaryGenerator('void1')),
+            // { type: 'AND' },
+            { type: 'LEFT_PAR' },
+            ...(primaryGenerator(2)),
+            { type: 'AND' },
+            ...(primaryGenerator(3)),
+            { type: 'AND' },
+            ...(primaryGenerator(4)),
+            { type: 'RIGHT_PAR' },
+            { type: 'END' },
+        ],
+        expectedTree : { [Op.and] : [
+            { c2 : { [Op.eq] : 2 }}, {c3: { [Op.eq] : 3 }}, {c4: { [Op.eq] : 4 }}
+        ]}
+    },
+]
 
 describe('Parser', () => {
     
@@ -287,7 +365,11 @@ describe('Parser', () => {
     test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', 
         async (_, tokenList, expectedTree) => {
 
-            const operationTree = (await parser.parse(tokenList as Token[])).getResult();
+            const result = await parser.parse(tokenList as Token[])
+
+            expect(result).not.toResultHaveErrors();
+
+            const operationTree = result.getResult();
 
             expect(operationTree).toBeDefined();
             expect(operationTree).toStrictEqual(expectedTree);
@@ -299,12 +381,7 @@ describe('Parser', () => {
 
         const parserResult = await parser.parse(tokenList as Token[])
 
-        expect(parserResult.ok).toBe(false);
-        const sortedErrors = parserResult.getErrors().errors.map(e=>e.message).sort();
-    
-        expect(sortedErrors).toEqual((expectedErrors as string[]).sort());
-        
-        expect(parserResult.getErrors().errors.every(e=>e instanceof ParserError)).toBe(true);
+        expect(parserResult).toResultHaveErrors(expectedErrors as string[]);
 
     })
 
@@ -341,14 +418,64 @@ describe('Parser', () => {
         test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('With primary promises %s',
             async (_, tokenList, expectedTree) => {
                 
-                const operationTree = (await parserWithPromises.parse(tokenList as Token[])).getResult();
-    
+                const result = await parserWithPromises.parse(tokenList as Token[]);
+                
+                expect(result).not.toResultHaveErrors();
+                
+                const operationTree = result.getResult();
+
                 expect(operationTree).toBeDefined();
                 expect(operationTree).toStrictEqual(expectedTree);
             }, 100
         )
     })
 
-    test.todo('Test void and promise void results')
+    describe('With void promises', () => {
+
+        beforeAll(() => {
+            const primaryHook : PrimaryHook = (p) => {
+                return new Promise( (res, rej) => {
+                    const primary : Primary = {[p.lValue] : {[p.operator] : p.rValue}}
+                    
+                    if(p.lValue.includes('void')) {
+                        setTimeout( () => res(), 50 );
+                    } else {
+                        setTimeout( () => res(primary), 50 );
+                    }
+
+                })
+            };
+
+            parserWithPromises = new Parser( 
+                { 
+                    primary : primaryHook,
+                    operator : (op, err) => {
+                        const opSymbol = (lowerCaseOps)[op.toLowerCase()]; 
+                        if(typeof opSymbol === 'undefined'){ 
+                            err(`Could not resolve operator: ${op}`);
+                            return Symbol('noop')
+                        } else {
+                            return opSymbol
+                        }
+                    } 
+                }
+            );
+        })
+
+        test.each( operationWithVoidsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('With void promises %s',
+            async (_, tokenList, expectedTree) => {
+
+                const parserResult = await parserWithPromises.parse(tokenList as Token[]);
+                expect(parserResult).not.toResultHaveErrors();
+                
+                const operationTree = parserResult.getResult();
+
+                expect(operationTree).toBeDefined();
+                expect(operationTree).toStrictEqual(expectedTree);
+                
+            }
+        )
+
+    })
 
 })

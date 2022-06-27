@@ -1,5 +1,7 @@
 import { tokenizer, Token, ValueToken, StringToken, NumberToken, TokenizerError } from '../tokenizer';
 
+import _ from './setup';
+
 const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
 [
     {
@@ -119,8 +121,11 @@ describe('tokenizer', () => {
 
         let outputTokens : Token[] = [];
 
+        const result = tokenizer(query as string);
+        expect(result).not.toResultHaveErrors();
+
         // Weird typescript error. VSCode language server thinks query is strictly string, but while running test it spits compiler error saying query is of type string | Token[]
-        outputTokens = tokenizer(query as string).getResult();
+        outputTokens = result.getResult();
 
         scrubPositionsFromTokenList(outputTokens);
 
@@ -133,7 +138,10 @@ describe('tokenizer', () => {
 
         let outputTokens : Token[] = [];
 
-        outputTokens = tokenizer(query as string).getResult();
+        const result = tokenizer(query as string);
+        expect(result).not.toResultHaveErrors();
+
+        outputTokens = result.getResult();
         
         expect(outputTokens).not.toHaveLength(0);
         expect(outputTokens).toStrictEqual(expectedTokenList);
@@ -142,19 +150,10 @@ describe('tokenizer', () => {
 
     test.each(operationsErrorsToTest.map( o => [o.expression,o.expectedErrors]))('Token errors of %s', (query, expectedErrors) => {
 
-        let outputTokens : Token[] = [];
-        const sortedExpectedErrors = (expectedErrors as string[]).sort();
-
-        const tokenizerResult = tokenizer(query as string);
+        const result = tokenizer(query as string);
       
-        expect(tokenizerResult.ok).toBe(false);
-        const sortedRecievedErrors = tokenizerResult.getErrors().errors.map(e => e.message).sort();
+        expect(result).toResultHaveErrors(expectedErrors as string[]);
 
-        expect(sortedRecievedErrors).toEqual(sortedExpectedErrors);
-        tokenizerResult.getErrors().toString();
-
-        expect(tokenizerResult.getErrors().errors.every( e => e instanceof TokenizerError )).toBe(true);
     })
-        
-    test.todo('Tokenizer error')
+
 })

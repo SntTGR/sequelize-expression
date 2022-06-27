@@ -1,6 +1,6 @@
 {
   "name": "sequelize-expression",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "description": "Simple query expression frontend for the sequelize library",
   "keywords": [
     "sequelize",
@@ -20,7 +20,7 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "test:package": "node ./build/prepublish.js",
-    "prepublishOnly": "npm run build && npm run test"
+    "prePublishing": "npm run build && npm run test && npm run test:package"
   },
   "devDependencies": {
     "@types/jest": "^28.1.1",
@@ -37,6 +37,9 @@
   },
   "license": "MIT",
   "repository": "github:SntTGR/sequelize-expression",
+  "bugs": {
+    "url": "https://github.com/SntTGR/sequelize-expression/issues"
+  },
   "workspaces": [
     "build/tmp"
   ]

@@ -1,6 +1,8 @@
 import Expression from '../expression'
 import { Op } from 'sequelize';
 
+import _ from './setup';
+
 describe('sequelize-expression.js', () => {
 
     test('plain initialization', () => {
@@ -11,8 +13,14 @@ describe('sequelize-expression.js', () => {
         const parser = new Expression({op:Op as any});
 
         test('Precedence of logical operators', async () => {
-            const t1 = (await parser.parse('(a eq 1 and b eq 2) or c eq 3')).getResult();
-            const t2 = (await parser.parse(' a eq 1 and b eq 2  or c eq 3')).getResult();
+            const t1R = (await parser.parse('(a eq 1 and b eq 2) or c eq 3'));
+            expect(t1R).not.toResultHaveErrors();
+            const t1 = t1R.getResult();
+            
+            const t2R = (await parser.parse(' a eq 1 and b eq 2  or c eq 3'));
+            expect(t2R).not.toResultHaveErrors();
+            const t2 = t2R.getResult();
+
             expect(t1).toStrictEqual(t2);
         });
     })
@@ -27,13 +35,15 @@ describe('sequelize-expression.js', () => {
 
         test('Changing hooks', async () => {
             
-
-
-            const t1 = (await parser.parse('a eq 1')).getResult();
+            const t1R = (await parser.parse('a eq 1'));
+            expect(t1R).not.toResultHaveErrors();
+            const t1 = t1R.getResult();
             
             parser.hookOperator = (op) => Op['eq'];
 
-            const t2 = (await parser.parse('a foo 1')).getResult();
+            const t2R = (await parser.parse('a foo 1'))
+            expect(t2R).not.toResultHaveErrors();
+            const t2 = t2R.getResult();
             
             expect(t1).toStrictEqual(t2);
         })
@@ -46,9 +56,7 @@ describe('sequelize-expression.js', () => {
             }
             const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
-            expect(t.ok).toBe(false);
-            t.getErrors().toString()
-            expect(t.getErrors().errors.map(e => e.message)).toEqual(['Soft error!','Soft error!']);
+            expect(t).toResultHaveErrors(['Soft error!','Soft error!']);
 
         })
 
@@ -61,9 +69,7 @@ describe('sequelize-expression.js', () => {
 
             const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
-            expect(t.ok).toBe(false);
-            t.getErrors().toString();
-            expect(t.getErrors().errors.map(e => e.message)).toEqual(['Hard error!']);
+            expect(t).toResultHaveErrors(['Hard error!']);
             
         })
 
@@ -75,7 +81,7 @@ describe('sequelize-expression.js', () => {
 
             const t = await parser.parse('c lt 1 AND b eq 3, a eq 1');
 
-            expect(t.ok).toBe(true);
+            expect(t).not.toResultHaveErrors();
             expect(t.getResult()).toEqual({
                 [Op['eq']] : { 'b' : 3 }
             })
