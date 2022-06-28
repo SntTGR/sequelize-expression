@@ -294,6 +294,7 @@ export class Parser {
         function primary() : PromisedOperationsTree | null {
             
             if(c.advanceIfMatch('LEFT_PAR')) {
+                if (c.advanceIfMatch('RIGHT_PAR')) return null;
                 const exp = expression();
                 if(!c.advanceIfMatch('RIGHT_PAR')) c.newParserSoftError('Expected closing ) value');
                 return exp;

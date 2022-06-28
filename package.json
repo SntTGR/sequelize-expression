@@ -18,6 +18,7 @@
     "start": "ts-node ./src/expression",
     "build": "tsc",
     "test": "jest",
+    "ft": "jest --onlyFailures",
     "test:watch": "jest --watchAll",
     "test:package": "node ./build/prepublish.js",
     "prePublishing": "npm run build && npm run test && npm run test:package"
