@@ -249,6 +249,16 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
             { c2 : { [Op.eq] : 2 }}, {c3: { [Op.eq] : 3 }}, {c4: { [Op.eq] : 4 }}
         ]}
     },
+    {
+        expression : 'c1 eq null',
+        tokenList : [
+            { type: 'IDENTIFIER', value : 'c1' } as StringToken,
+            { type: 'EQ' },
+            { type: 'NULL' },
+            { type: 'END' }
+        ],
+        expectedTree : { c1 : { [Op.eq] : null }}
+    }
 ]
 const operationsErrorsToTest : { expression : string, tokenList : Token[], expectedErrors : string[] }[] = [
     {
@@ -391,7 +401,7 @@ describe('Parser', () => {
         );
     })
 
-    test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('%s', 
+    test.each( operationsToTest.map( o => [o.expression, o.tokenList, o.expectedTree] ))('Without promises %s', 
         async (_, tokenList, expectedTree) => {
 
             const result = await parser.parse(tokenList as Token[])

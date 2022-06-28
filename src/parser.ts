@@ -358,6 +358,7 @@ export class Parser {
             }
 
             if(c.isCurrentMatch('NULL')) {
+                c.getCurrentAndAdvance();
                 return null;
             }
 

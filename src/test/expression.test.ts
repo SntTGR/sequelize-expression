@@ -1,5 +1,5 @@
 import Expression from '../expression'
-import { Op } from 'sequelize';
+import { DataTypes, Model, Op, Sequelize } from 'sequelize';
 
 import _ from './setup';
 
@@ -23,6 +23,119 @@ describe('sequelize-expression.js', () => {
 
             expect(t1).toStrictEqual(t2);
         });
+    })
+
+    describe('in-memory integration test', () => {
+        
+        let db : Sequelize;
+        let expression : Expression;
+
+        beforeAll(async () => {
+            db = new Sequelize('sqlite::memory:',
+            {
+                logging: false
+            }
+            );
+            await db.authenticate();
+
+            // Set up expression instance
+            expression = new Expression({op: Op as any});
+
+            // Set up models
+            const User = db.define('User', {
+                firstName: { type: DataTypes.STRING, primaryKey : true, allowNull : false },
+                lastName : { type: DataTypes.STRING }
+            },
+            {
+                createdAt: false,
+                updatedAt: false,
+            })
+
+            await User.sync({force : true});
+
+            // Set up dataset
+            await User.bulkCreate([
+                { firstName: 'Emily',     lastName: 'Hemmings' },
+                { firstName: 'Amelia',    lastName: 'Young' },
+                { firstName: 'Andrew',    lastName: 'Robertson' },
+                { firstName: 'Steven',    lastName: 'Mathis' },
+                { firstName: 'Kevin',     lastName: 'Springer' },
+                { firstName: 'Evan',      lastName: null },
+                { firstName: 'Adam',      lastName: null },
+                { firstName: 'Deirdre',   lastName: 'Fisher' },
+                { firstName: 'Joan',      lastName: 'Edmunds' },
+                { firstName: 'Keith',     lastName: 'Burgess' },
+                { firstName: 'Cameron',   lastName: 'Tucker' },
+                { firstName: 'Felicity',  lastName: 'Hodges' },
+                { firstName: 'Abigail',   lastName: 'Peake' },
+                { firstName: 'Michael',   lastName: 'Miller' },
+                { firstName: 'Luke',      lastName: 'Allan' },
+                { firstName: 'Karen',     lastName: null },
+                { firstName: 'Dorothy',   lastName: 'Roberts' },
+                { firstName: 'Melanie',   lastName: 'Cornish' },
+                { firstName: 'Rose',      lastName: 'Harris' },
+                { firstName: 'Victoria',  lastName: 'Bell' },
+                { firstName: 'Trevor',    lastName: null },
+                { firstName: 'Sebastian', lastName: 'Burgess' },
+                { firstName: 'Neil',      lastName: 'Thomson' },
+                { firstName: 'Anne',      lastName: 'Coleman' },
+            ]);
+        })
+
+        test.each([
+            ['Filter by name or name', 'firstName = Amelia | firstName = Karen', 
+                [
+                    {firstName: 'Amelia',     lastName : 'Young'},
+                    {firstName : 'Karen',     lastName: null}
+                ]
+            ],
+            ['Filter by null lastName', 'lastName eq null', 
+                [
+                    { firstName: 'Evan',      lastName: null },
+                    { firstName: 'Adam',      lastName: null },
+                    { firstName: 'Karen',     lastName: null },
+                    { firstName: 'Trevor',    lastName: null },
+                ]
+            ],
+            ['Filter firstName second to last has e', 'firstName like %e_', 
+                [
+                    { firstName: 'Andrew',    lastName: 'Robertson' },
+                    { firstName: 'Steven',    lastName: 'Mathis' },
+                    { firstName: 'Michael',   lastName: 'Miller' },
+                    { firstName: 'Karen',     lastName: null },
+                ]
+            ],
+            ['Filter lastName in array of cases', 'lastName in [Harris,Bell,Peake]', 
+                [
+                    { firstName: 'Rose',      lastName: 'Harris' },
+                    { firstName: 'Abigail',   lastName: 'Peake' },
+                    { firstName: 'Victoria',  lastName: 'Bell' },
+                ]
+            ],
+        ])( '%s: %s', async (_, exp, expected) => {
+
+            const result = await expression.parse(exp);
+            
+            expect(result).not.toResultHaveErrors();
+
+            const filters = result.getResult();
+
+            const dbResult = await db.models.User.findAll({
+                where: filters as any,
+                raw: true
+            });
+
+            expect(dbResult).toBeDefined();
+
+            dbResult.sort( (a,b) => ((a as any).firstName as string).localeCompare((b as any).lastName) );
+            expected.sort( (a,b) => ((a as any).firstName as string).localeCompare((b as any).lastName) );
+
+            expect(dbResult).toEqual(expected);
+        })
+
+        afterAll(() => {
+            db.close();
+        })
     })
 
     describe('Hooks', () => {
@@ -90,6 +203,8 @@ describe('sequelize-expression.js', () => {
 
     })
 
+    
+    
     test.todo('test with sequelize in-memory database')
     
 })

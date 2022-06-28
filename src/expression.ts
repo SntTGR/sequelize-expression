@@ -21,7 +21,7 @@ export type Hooks = { primary : PrimaryHook, operator : OperatorHook };
 
 export class ExpresionParser {
     
-    parser : Parser
+    private parser : Parser
 
     /**
      * @callback errorCallback
