@@ -1,5 +1,5 @@
 import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
-import type { Hooks, Primary } from './expression';
+import type { Resolvers, Primary } from './expression';
 
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
 
@@ -168,10 +168,10 @@ class ParsingContext {
 
 export class Parser {
     
-    private _hooks : Hooks;
+    private _resolvers : Resolvers;
 
-    constructor(hooks : Hooks) {
-        this._hooks = hooks;
+    constructor(resolvers : Resolvers) {
+        this._resolvers = resolvers;
     }
 
     private _operatorMemory : { [op : string] : symbol } = {};
@@ -180,9 +180,9 @@ export class Parser {
         return this._operatorMemory[op];
     }
 
-    public set hooks( hooks : Hooks ) {
+    public set resolvers( resolvers : Resolvers ) {
         this._operatorMemory = {};
-        this._hooks = hooks;
+        this._resolvers = resolvers;
     }
 
     public async parse( tokenList : Token[] ) : Promise<ExpressionResult<OperationsTree>> {
@@ -225,8 +225,8 @@ export class Parser {
         // /* ---------------------------------------- */
 
         const c = new ParsingContext(tokenList);
-        const hooks = this._hooks;
-        const memoizedOperatorGenerator = (op : string, token : Token) => this.memoizedOperator(op, this._hooks.operator.bind(null, op, (message) => c.newParserHardError(message, token)));
+        const resolvers = this._resolvers;
+        const memoizedOperatorGenerator = (op : string, token : Token) => this.memoizedOperator(op, this._resolvers.operator.bind(null, op, (message) => c.newParserHardError(message, token)));
 
         // <expression> ::= <andBinary>
         function expression() : PromisedOperationsTree | null {
@@ -309,7 +309,7 @@ export class Parser {
             const primaryLastToken = c.getPreviousToken();
 
             const err = (message : string) => c.newParserHardError(message, [primaryFirstToken, primaryLastToken])
-            const primary = hooks.primary( { lValue, operator : op, rValue}, err);
+            const primary = resolvers.primary( { lValue, operator : op, rValue}, err);
             if(typeof primary === 'undefined') return null;
 
             return new PrimaryWrapper( isPromise(primary) ? primary : Promise.resolve(primary))

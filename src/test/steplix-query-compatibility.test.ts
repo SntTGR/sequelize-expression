@@ -3,7 +3,7 @@ import { Op } from 'sequelize';
 
 import _ from './setup';
 
-import type { PrimaryHook, OperatorHook } from '../expression';
+import type { PrimaryResolver, OperatorResolver } from '../expression';
 import type { RightValue, OperationsTree } from '../parser';
 
 const { Parser } = require('steplix-query-filters');
@@ -35,13 +35,13 @@ describe('steplix-quey-filters compatibility', () => {
         
         steplixParser = new Parser();
 
-        const compatibilityOperator : OperatorHook = (op, err) => {
+        const compatibilityOperator : OperatorResolver = (op, err) => {
             const sOp = steplixOpsPatch[op]
             if(!sOp) {err(`Could not resolve operator ${op}`); return Symbol('noop')}
             if(op === 'and' || op === 'or' || op === 'not') return sOp;
             return Symbol(op);
         }
-        const compatibilityPrimary : PrimaryHook = (p, err) => {
+        const compatibilityPrimary : PrimaryResolver = (p, err) => {
             const arrTransform = (itself : any, obj : RightValue) => { 
                 if(Array.isArray(obj)) return obj.map( (i) => itself(itself, i) ) 
                 return obj !== null ? obj.toString() : obj;
@@ -75,7 +75,7 @@ describe('steplix-quey-filters compatibility', () => {
         };
         
 
-        sequelizeExpression = new ExpressionParser({hooks:{primary:compatibilityPrimary,operator:compatibilityOperator}});
+        sequelizeExpression = new ExpressionParser({resolvers:{primary:compatibilityPrimary,operator:compatibilityOperator}});
 
     })
 

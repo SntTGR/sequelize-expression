@@ -15,9 +15,9 @@ type Ops = ParserOps
 
 type errorCallback = (message : string) => PanicNotation
 
-export type PrimaryHook = ( primaryValues : PrimaryValues, err : errorCallback ) => Promise<Primary | void> | Primary | void ;
-export type OperatorHook = ( operatorString : string, err : errorCallback ) => symbol; 
-export type Hooks = { primary : PrimaryHook, operator : OperatorHook }; 
+export type PrimaryResolver = ( primaryValues : PrimaryValues, err : errorCallback ) => Promise<Primary | void> | Primary | void ;
+export type OperatorResolver = ( operatorString : string, err : errorCallback ) => symbol; 
+export type Resolvers = { primary : PrimaryResolver, operator : OperatorResolver }; 
 
 export class ExpresionParser {
     
@@ -29,7 +29,7 @@ export class ExpresionParser {
      * @returns {PanicNotation} - Throwing it signals the parser to panic and make an early return
      * 
      * 
-     * @callback PrimaryHook 
+     * @callback PrimaryResolver 
      * @param {PrimaryValues} primaryValues - Object holding the primary values
      * @param {LeftValue} primaryValues.lValue - Identifier of the column
      * @param {Operator} primaryValues.operator - Symbol of the sequelize operation
@@ -37,23 +37,23 @@ export class ExpresionParser {
      * @param {errorCallback} err - Callback to signal errors to the parser
      * @returns {Primary | void} - Returns the structure that the primary should take or if void, the parser tries to delete it safely from the resulting tree
      * 
-     * @callback OperatorHook - Memoized operator resolver
+     * @callback OperatorResolver - Memoized operator resolver
      * @param {string} operatorString - String that the parser is trying to resolve
      * @param {errorCallback} - Callback to signal errors to the parser
      */
 
-    private _hookPrimary : PrimaryHook | undefined;
-    private _hookOperator : OperatorHook | undefined;
+    private _resolverPrimary : PrimaryResolver | undefined;
+    private _resolverOperator : OperatorResolver | undefined;
     
     /**
      * 
      * @param {Object} options
      * @param {Ops} [options.op] - Sequelize options mapper, if present it creates a default operator resolver using it.
-     * @param {Object} [options.hooks] - Hooks to initialize the parser instead of the defaults.
-     * @param {PrimaryHook} [options.hooks.primary] - Hook that resolves primaries
-     * @param {OperatorHook} [options.hooks.operator] - Hook that resolves operators
+     * @param {Object} [options.resolvers] - Resolvers to initialize the parser instead of the defaults.
+     * @param {PrimaryResolver} [options.resolvers.primary] - Resolver that resolves primaries
+     * @param {OperatorResolver} [options.resolvers.operator] - Resolver that resolves operators
      */
-    constructor(options : { op? : Ops, hooks? : { primary? : PrimaryHook, operator? : OperatorHook } } ) {        
+    constructor(options : { op? : Ops, resolvers? : { primary? : PrimaryResolver, operator? : OperatorResolver } } ) {        
 
         // Construct default primary from Operators list
         if(options.op) {            
@@ -61,7 +61,7 @@ export class ExpresionParser {
             const defaultLowerOps : Ops = {};
             Object.entries(options.op).forEach( ([key, value]) => defaultLowerOps[key.toLowerCase()] = value );
             
-            this._hookOperator = (op, err) => {     
+            this._resolverOperator = (op, err) => {     
                 const opSymbol = defaultLowerOps[op.toLowerCase()];
                 if(!opSymbol) {
                     err(`Could not resolve operator: ${op}`);
@@ -72,15 +72,15 @@ export class ExpresionParser {
             }
         }
 
-        if(options.hooks) {
-            if(options.hooks.primary) this._hookPrimary = options.hooks.primary;
-            if(options.hooks.operator) this._hookOperator = options.hooks.operator;
+        if(options.resolvers) {
+            if(options.resolvers.primary) this._resolverPrimary = options.resolvers.primary;
+            if(options.resolvers.operator) this._resolverOperator = options.resolvers.operator;
         }
 
-        if (!this._hookOperator) throw new Error('Expected operator hook to be defined');
-        if (!this._hookPrimary) this._hookPrimary = (p) => ({[p.lValue] : {[p.operator] : p.rValue }});
+        if (!this._resolverOperator) throw new Error('Expected operator resolver to be defined');
+        if (!this._resolverPrimary) this._resolverPrimary = (p) => ({[p.lValue] : {[p.operator] : p.rValue }});
 
-        this.parser = new Parser(this.getHookBundle());
+        this.parser = new Parser(this.getResolverBundle());
     }
 
     async parse( input : string ) : Promise<ExpressionResult<OperationsTree>> {
@@ -115,7 +115,7 @@ export class ExpresionParser {
     }
 
     /**
-     * Sets the primary hook, the function is called just before the end of the primary resolution. Depending on the returned value of the hook different effects happen.
+     * Sets the primary resolver, the function is called just before the end of the primary resolution. Depending on the returned value of the resolver different effects happen.
      * 
      * The returned value is written into the operations tree.
      * If instead the return value is void, the parser will try to safely delete the primary from the parsed result.
@@ -124,40 +124,40 @@ export class ExpresionParser {
      * operator corresponds to the operator symbol
      * rValue corresponds to the value of the query
      * 
-     * the err callback is used to report an error in the execution of the hook, passing a message to describe the error reason.
+     * the err callback is used to report an error in the execution of the resolver, passing a message to describe the error reason.
      * while the err callback returns an Error, throwing it results in an early termination of the parsing step. It is recomended
      * to not throw the returned err callback unless it is certain that the parser should panic.
      * 
-     * This hook is useful for column name authorization/security, resolving external columns/values and for casting values.
-     * @param {PrimaryHook} hook
+     * This resolver is useful for column name authorization/security, resolving external columns/values and for casting values.
+     * @param {PrimaryResolver} resolver
      */
-    public set hookPrimary( hook : PrimaryHook ) {
-        this._hookPrimary = hook;
-        this.updateChildsHooks();
+    public set resolverPrimary( resolver : PrimaryResolver ) {
+        this._resolverPrimary = resolver;
+        this.updateChildsResolvers();
     }
     
     /**
      * Resolves the operator string into a sequelize recognized symbol.
      * This function is internally memoized, so its expected to have a pure function
      * 
-     * This hook is useful for operator aliases/mapping, subsetting sequelize operators, etc.
-     * @param {OperatorHook} hook
+     * This resolver is useful for operator aliases/mapping, subsetting sequelize operators, etc.
+     * @param {OperatorResolver} resolver
      */
-    public set hookOperator( hook : OperatorHook ) {
-        this._hookOperator = hook;
-        this.updateChildsHooks();
+    public set resolverOperator( resolver : OperatorResolver ) {
+        this._resolverOperator = resolver;
+        this.updateChildsResolvers();
     }
 
 
     // NOTE: Unfortunate that cannot use references of functions, and have to rely on updating values. Might refactor later
-    private getHookBundle() : Hooks {
+    private getResolverBundle() : Resolvers {
         return {
-            primary: this._hookPrimary as PrimaryHook,
-            operator: this._hookOperator as OperatorHook
+            primary: this._resolverPrimary as PrimaryResolver,
+            operator: this._resolverOperator as OperatorResolver
         }
     }
-    private updateChildsHooks() {
-        this.parser.hooks = this.getHookBundle();
+    private updateChildsResolvers() {
+        this.parser.resolvers = this.getResolverBundle();
     }
 
 }

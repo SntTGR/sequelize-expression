@@ -138,7 +138,7 @@ describe('sequelize-expression.js', () => {
         })
     })
 
-    describe('Hooks', () => {
+    describe('resolvers', () => {
         
         let parser : Expression;
 
@@ -146,13 +146,13 @@ describe('sequelize-expression.js', () => {
             parser = new Expression( { op:Op as any } );
         })
 
-        test('Changing hooks', async () => {
+        test('changing resolvers', async () => {
             
             const t1R = (await parser.parse('a eq 1'));
             expect(t1R).not.toResultHaveErrors();
             const t1 = t1R.getResult();
             
-            parser.hookOperator = (op) => Op['eq'];
+            parser.resolverOperator = (op) => Op['eq'];
 
             const t2R = (await parser.parse('a foo 1'))
             expect(t2R).not.toResultHaveErrors();
@@ -161,9 +161,9 @@ describe('sequelize-expression.js', () => {
             expect(t1).toStrictEqual(t2);
         })
 
-        test('Hook primary error', async () => {
+        test('resolver soft error', async () => {
 
-            parser.hookPrimary = (p, err) => {
+            parser.resolverPrimary = (p, err) => {
                 if(p.rValue === 1) err('Soft error!');
                 return { [Symbol('test')] : { 'test' : 'test' } }
             }
@@ -173,9 +173,9 @@ describe('sequelize-expression.js', () => {
 
         })
 
-        test('Hook hard error', async () => {
+        test('resolver hard error', async () => {
 
-            parser.hookPrimary = (p, err) => {
+            parser.resolverPrimary = (p, err) => {
                 if(p.rValue === 1) throw err('Hard error!');
                 return { [Symbol('test')] : { 'test' : 'test' } }
             }
@@ -186,9 +186,9 @@ describe('sequelize-expression.js', () => {
             
         })
 
-        test('Hook primary ignore', async () => {
+        test('primary resolver ignore primaries', async () => {
 
-            parser.hookPrimary = p => {
+            parser.resolverPrimary = p => {
                 if(p.rValue !== 1) return { [p.operator] : { [p.lValue] : p.rValue } }
             }
 
@@ -201,10 +201,6 @@ describe('sequelize-expression.js', () => {
 
         })
 
-    })
+    });
 
-    
-    
-    test.todo('test with sequelize in-memory database')
-    
 })

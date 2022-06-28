@@ -6,7 +6,7 @@ import type { NumberToken, StringToken, Token, ValueToken } from '../tokenizer';
 import _ from './setup';
 
 import { Op } from 'sequelize';
-import type { Primary, PrimaryHook } from '../expression';
+import type { Primary, PrimaryResolver } from '../expression';
 
 const primaryGenerator = (id : number | string) : Token[] => {
 
@@ -428,21 +428,21 @@ describe('Parser', () => {
     describe('With promises', () => {
         
         beforeAll(() => {
-            const primaryHook : PrimaryHook = (p) => {
+            const primaryResolver : PrimaryResolver = (p) => {
                 return new Promise( (res, rej) => {
                     const primary : Primary = {[p.lValue] : {[p.operator] : p.rValue }}
 
                     if (p.lValue.includes('void')) {
-                        setTimeout(() => res(), 50);
+                        setTimeout(() => res(), 10);
                     } else {
-                        setTimeout(() => res(primary), 50);
+                        setTimeout(() => res(primary), 10);
                     }
                 });
             }
 
             parserWithPromises = new Parser( 
                 { 
-                    primary : primaryHook,
+                    primary : primaryResolver,
                     operator : (op, err) => {
                         const opSymbol = (lowerCaseOps)[op.toLowerCase()]; 
                         if(typeof opSymbol === 'undefined'){ 
@@ -475,14 +475,14 @@ describe('Parser', () => {
     describe('With void promises', () => {
 
         beforeAll(() => {
-            const primaryHook : PrimaryHook = (p) => {
+            const primaryResolver : PrimaryResolver = (p) => {
                 return new Promise( (res, rej) => {
                     const primary : Primary = {[p.lValue] : {[p.operator] : p.rValue}}
                     
                     if(p.lValue.includes('void')) {
-                        setTimeout( () => res(), 50 );
+                        setTimeout( () => res(), 10);
                     } else {
-                        setTimeout( () => res(primary), 50 );
+                        setTimeout( () => res(primary), 10);
                     }
 
                 })
@@ -490,7 +490,7 @@ describe('Parser', () => {
 
             parserWithPromises = new Parser( 
                 { 
-                    primary : primaryHook,
+                    primary : primaryResolver,
                     operator : (op, err) => {
                         const opSymbol = (lowerCaseOps)[op.toLowerCase()]; 
                         if(typeof opSymbol === 'undefined'){ 
