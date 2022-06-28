@@ -428,14 +428,25 @@ export class Parser {
                 const subtreeCopy : OperationsTree = {};
                 // Traverse all keys
                 const subtreeKeys = Reflect.ownKeys(subtree);
+                
+                // TODO: simplify when going to prod.
+
+                let earlyReturn = false;
+                let earlyReturnValue = {};
 
                 for (let i = 0; i < subtreeKeys.length; i++) {
                     const subObject = await itself(itself, (subtree as any)[subtreeKeys[i]]);
                     if(typeof subObject === 'undefined') continue;
+                    if(Array.isArray(subObject) && subObject.length === 1) { // Simplification step -> { AND : [primary] } -> { primary }
+                        // return subObject[0]; // There should not be more than 2 passes for this
+                        if(earlyReturn) throw new Error('There should not be more than subobject passes for simplification candidate');
+                        earlyReturn = true; earlyReturnValue = subObject[0];
+                    }
                     subtreeCopy[ (subtreeKeys as any)[i] ] = subObject;
                 }
 
                 if (Reflect.ownKeys(subtreeCopy).length === 0) return;
+                if (earlyReturn) return earlyReturnValue;
 
                 return subtreeCopy;
             }
