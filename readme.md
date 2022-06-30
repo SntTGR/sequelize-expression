@@ -118,12 +118,12 @@ Right values accept:
 
 Everything is associative from left-to-right.
 Precedence table:
-|     |                                 |
-| --- | :-----------------------------: |
-|     |               or                |
-|     |               and               |
-|     |               not               |
-|     | operators, values, [], (), null |
+|                                 |
+| :-----------------------------: |
+|               or                |
+|               and               |
+|               not               |
+| operators, values, [], (), null |
 
 ## Output
 
