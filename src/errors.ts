@@ -64,9 +64,14 @@ export class ErrorBundle {
 
     toString() : string {
         return this.errors.map( (e,i) => {
-            return `Err ${i}: ${e.name} - ${e.message}` + ` at ${e.position}:${e.position+e.length}` 
-            + (this.input ? + '\n' + `${this.input}` + '\n' +
-            ` `.repeat(e.position) + '^'.repeat(e.length) : '')
+            
+            let formattedError = `Err ${i}: ${e.name} - ${e.message}` + ` at ${e.position}:${e.position+e.length}`;
+            if(this.input) {
+                formattedError += `\n${this.input}\n`+ ` `.repeat(e.position) + '^'.repeat(e.length)
+            }
+            
+            return formattedError;
+            
         }).join('\n\n');
     }
 

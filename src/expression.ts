@@ -19,7 +19,7 @@ export type PrimaryResolver = ( primaryValues : PrimaryValues, err : errorCallba
 export type OperatorResolver = ( operatorString : string, err : errorCallback ) => symbol; 
 export type Resolvers = { primary : PrimaryResolver, operator : OperatorResolver }; 
 
-export class ExpresionParser {
+export class Expression {
     
     private parser : Parser
 
@@ -162,4 +162,4 @@ export class ExpresionParser {
 
 }
 
-export default ExpresionParser;
+export default Expression;

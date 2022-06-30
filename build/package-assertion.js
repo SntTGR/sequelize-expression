@@ -1,12 +1,12 @@
 // @ts-nocheck
 (async () => {
     try {
-        const { ExpresionParser } = require('sequelize-expression');
+        const { Expression } = require('sequelize-expression');
         const symbols = {
             ['and'] : Symbol('and'),
             ['eq'] : Symbol('eq'),
         };
-        const parser = new ExpresionParser({ op : symbols});
+        const parser = new Expression({ op : symbols});
         const output = (await parser.parse('col1 = 2, col2 = "4"')).getResult();
         
         // Assertions

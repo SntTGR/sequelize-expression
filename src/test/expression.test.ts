@@ -23,6 +23,14 @@ describe('sequelize-expression.js', () => {
 
             expect(t1).toStrictEqual(t2);
         });
+
+        test('Error formatted printing', async () => {
+            const result = await parser.parse('null > 2');
+
+            expect(result).toResultHaveErrors(['Expected an identifier']);
+
+            expect(result.getErrors().toString()).toStrictEqual('Err 0: ParserError - Expected an identifier at 0:4\nnull > 2\n^^^^');
+        })
     })
 
     describe('in-memory integration test', () => {
