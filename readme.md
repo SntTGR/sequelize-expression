@@ -45,7 +45,7 @@ const filters = {
 
 Syntax consists of [primaries](#primaries) connected by [logical operators](#logic-operators).
 
-### Logic Operators
+### Logic operators shorthands
 
 |     | valid values | Alias to |
 | --- | :----------: | :------: |
@@ -53,11 +53,48 @@ Syntax consists of [primaries](#primaries) connected by [logical operators](#log
 | AND |     & ,      |   and    |
 | NOT |      !       |   not    |
 
+### Operator shorthands
+
+|     | valid values | Alias to |
+| --- | :----------: | :------: |
+| GT  |      >       |    gt    |
+| LT  |      <       |    lt    |
+| EQ  |      =       |    eq    |
+| NE  |      !=      |    ne    |
+| GTE |      >=      |   gte    |
+| LTE |      <=      |   lte    |
+
+### Value types
+| name           |           examples            |         tree output         | notes                                                                          |
+| :------------- | :---------------------------: | :-------------------------: | :----------------------------------------------------------------------------- |
+| identifier     |         `leftColumn`          |        "leftColumn"         | Accepts _-% characters                                                         |
+| null           |            `null`             |            null             | reserved keyword                                                               |
+| string literal |       `"null"` `"123"`        |        "null" "123"         | quotes can be escaped using `\"`                                               |
+| numbers        |         `-0.65` `123`         |          -0.65 123          |                                                                                |
+| arrays         | `[1,"two",three,[4],[5;6;],]` | [1,"two","three",[4],[5,6]] | Can be nested. Last comma/semicolon is redundant and optional (like js arrays) |
+### Reserved keywords
+
+If an identifier matches one of these keywords, they are used instead of the string value.
+|      | note |
+| :--: | ---- |
+| not  |      |
+| and  |      |
+| ---  | ---  |
+|  or  |      |
+|  gt  |      |
+|  lt  |      |
+|  eq  |      |
+|  ne  |      |
+| gte  |      |
+| lte  |      |
+| ---  | ---  |
+| null |      |
+
 ### Primaries
 
 Primaries are the individual conditions of **column** **operator** **value**. For example `firstName like "John%"`.
 
-These values map to syntax of a **leftValue** an **operator** and a **rightValue** respectively.
+These values map to syntax of a [**leftValue**](#left-values) an [**operator**](#operators) and a [**rightValue**](#right-values) respectively.
 
 #### Left values
 Left values are the column descriptors, they accept:
@@ -69,29 +106,13 @@ Operators are the descriptors of sequelize Operators, they accept:
 - any *identifier* that doesn't match a reserved [keyword](todo) For example: `like`
 - string literals using the "" syntax. For example: `"startsWith"`
 
-#### Righ values
-Values accept:
+#### Right values
+Right values accept:
 - null keyword: `null`
 - any *identifier* that doesn't match a reserved [keyword](todo) For example: `john`
 - string literals using the "" syntax. For example: `"john"`
 - numbers: `0.125`, `-54`, `321`
 - arrays: `[null,"John",45,[]]`
-
-### Arrays
-
-Arrays consist of brackets with rValues separated by either comma or semicolons. Just like javascript the ending comma/semicolon is redundant.
-
-Examples: 
-- `[1,2,3]`
-- `["val";identifier;null;[1,2,3];2.0;]`
-
-### String literals
-
-String literals are values enclosed by " quotes. Quotes can be escaped with \"
-
-Examples:
-- `"John \"Rocket\" Doe"`
-- `"null"`
 
 ### Precedence & Associativity
 
