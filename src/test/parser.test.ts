@@ -42,6 +42,14 @@ const operationsToTest : { expression : string, tokenList : Token[], expectedTre
         expectedTree : { column2 : { [Op.eq] : -3 } }
     },
     {
+        expression : 'column2 EQ true',
+        tokenList : [
+            { type: 'IDENTIFIER', value: 'column2' } as ValueToken, { type: 'EQ' }, { type: 'BOOLEAN', value: true } as ValueToken, 
+            { type: 'END' }
+        ],
+        expectedTree : { column2 : { [Op.eq] : true } }
+    },
+    {
         expression : 'c1 eq 1 and c2 eq 2 and c3 eq 3 or ( c4 eq 4 or c5 eq 5 and c6 eq 6 )',
         tokenList : [
             ...(primaryGenerator(1)),

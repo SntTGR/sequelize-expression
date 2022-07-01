@@ -1,4 +1,4 @@
-import { tokenizer, Token, ValueToken, StringToken, NumberToken, TokenizerError } from '../tokenizer';
+import { tokenizer, Token, ValueToken, StringToken, NumberToken, TokenizerError, BooleanToken } from '../tokenizer';
 
 import _ from './setup';
 
@@ -52,14 +52,14 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
         ]
     },
     {
-        expression : 'column4 in [1;2;3]',
+        expression : 'column4 in [1;false;3]',
         expectedTokens : [
             { type: 'IDENTIFIER', value: 'column4' } as StringToken,
             { type: 'IDENTIFIER', value: 'in' } as StringToken,
             { type: 'LEFT_BRACKET' },
             { type: 'NUMBER', value: 1 } as NumberToken,
             { type: 'SEMICOLON' },
-            { type: 'NUMBER', value: 2 } as NumberToken,
+            { type: 'BOOLEAN', value: false } as BooleanToken,
             { type: 'SEMICOLON' },
             { type: 'NUMBER', value: 3 } as NumberToken,
             { type: 'RIGHT_BRACKET' },

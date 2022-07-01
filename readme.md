@@ -72,23 +72,27 @@ Syntax consists of [primaries](#primaries) connected by [logical operators](#log
 | string literal |       `"null"` `"123"`        |        "null" "123"         | quotes can be escaped using `\"`                                               |
 | numbers        |         `-0.65` `123`         |          -0.65 123          |                                                                                |
 | arrays         | `[1,"two",three,[4],[5;6;],]` | [1,"two","three",[4],[5,6]] | Can be nested. Last comma/semicolon is redundant and optional (like js arrays) |
+| booleans       |        `true` `false`         |         true false          |                                                                                |
 ### Reserved keywords
 
 If an identifier matches one of these keywords, they are used instead of the string value.
-|      | note |
-| :--: | ---- |
-| not  |      |
-| and  |      |
-| ---  | ---  |
-|  or  |      |
-|  gt  |      |
-|  lt  |      |
-|  eq  |      |
-|  ne  |      |
-| gte  |      |
-| lte  |      |
-| ---  | ---  |
-| null |      |
+|       | note |
+| :---: | ---- |
+|  not  |      |
+|  and  |      |
+|  ---  | ---  |
+|  or   |      |
+|  gt   |      |
+|  lt   |      |
+|  eq   |      |
+|  ne   |      |
+|  gte  |      |
+|  lte  |      |
+|  ---  | ---  |
+| null  |      |
+|  ---  | ---  |
+| true  |      |
+| false |      |
 
 ### Primaries
 
@@ -109,6 +113,7 @@ Operators are the descriptors of sequelize Operators, they accept:
 #### Right values
 Right values accept:
 - null keyword: `null`
+- bool keywords : `true` or `false`
 - any *identifier* that doesn't match a reserved [keyword](todo) For example: `john`
 - string literals using the "" syntax. For example: `"john"`
 - numbers: `0.125`, `-54`, `321`

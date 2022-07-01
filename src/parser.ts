@@ -1,4 +1,4 @@
-import type { NumberToken, StringToken, Token, TokenType, ValueToken } from './tokenizer';
+import type { NumberToken, StringToken, BooleanToken, Token, TokenType, ValueToken } from './tokenizer';
 import type { Resolvers, Primary } from './expression';
 
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
@@ -40,7 +40,7 @@ export type ParserOps = { [operation : string] : symbol };
 
 export type Operator = symbol;
 export type LeftValue = string;
-export type RightValue = string | null | number | RightValue[];
+export type RightValue = string | null | number | boolean | RightValue[];
 
 
 // Util
@@ -156,6 +156,9 @@ class ParsingContext {
     isNumberToken(token : Token) : token is NumberToken {
         return typeof (token as NumberToken).value === 'number';
     }
+    isBooleanToken(token : Token) : token is BooleanToken {
+        return typeof (token as NumberToken).value === 'boolean';
+    }
 
     setPromiseFlag(state : boolean) {
         this.promiseFlag = state;
@@ -200,6 +203,7 @@ export class Parser {
         //      <literalValue> ::= "\"val" ([0-9]) "\""
         //      <identifier> ::= "val" ([0-9] | [a-z] | [A-Z] | "." | "_" | "-" | "%" )+    /* should be separated by non identifier valid characters */ 
         //      <number> ::= ("-")? ([0-9])+ ("." ([0-9])+ )?                               /* number takes precedence if identifier has only number valid characters */ 
+        //      <boolean> ::= "true" | "false"
         //      <null> ::= "null"
         //
         // /* ------------ Required Operators ------ */
@@ -218,7 +222,7 @@ export class Parser {
         // /* ------------- Value Groups ------------- */
         //
         //      <operator> ::= <gt> | <lt> | <eq> | <ne> | <gte> | <lte> | <identifier>
-        //      <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null>
+        //      <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null> | <boolean>
         //      <leftValue> ::= <identifier> | <literalValue>
         //      <array> ::= "[" ( (<rightValue>) (("," | ";") (<rightValue>))* ("," | ";")? )? "]"
         //
@@ -355,6 +359,12 @@ export class Parser {
                 const rValue = c.getCurrentAndAdvance();
                 if(!c.isNumberToken(rValue)) throw c.newParserHardError('Expected a number in type number of rightValue', c.getPreviousToken());
                 return rValue.value
+            }
+
+            if(c.isCurrentMatch('BOOLEAN')) {
+                const rValue = c.getCurrentAndAdvance();
+                if(!c.isBooleanToken(rValue)) throw c.newParserHardError('Expected a number in type number of rightValue', c.getPreviousToken());
+                return rValue.value;
             }
 
             if(c.isCurrentMatch('NULL')) {

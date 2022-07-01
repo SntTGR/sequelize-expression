@@ -14,13 +14,16 @@ export interface Token {
     position? : { start: number, end: number }
 }
 export interface ValueToken extends Token {
-    value : string | number
+    value : string | number | boolean
 }
 export interface NumberToken extends ValueToken {
     value : number
 }
 export interface StringToken extends ValueToken {
     value : string
+}
+export interface BooleanToken extends ValueToken {
+    value : boolean
 }
 
 export type TokenType = 
@@ -29,6 +32,7 @@ export type TokenType =
     'IDENTIFIER'        | // alphanumeric + . + _ + - + % (for compatibility reasons)
     'LITERAL_VALUE'     | // "literal" (with \" as escape)
     'NUMBER'            | // digits + . 
+    'BOOLEAN'           | // true false
     'NULL'              | // null
 
     // Misc
@@ -77,6 +81,10 @@ const reservedKeywords : {[keyword : string] : Token} = {
     
     // null
     'null'  : { type:'NULL' },
+
+    // boolean
+    'true'  : { type:'BOOLEAN', value: true } as BooleanToken,
+    'false' : { type:'BOOLEAN', value: false } as BooleanToken,
 
 }
 
