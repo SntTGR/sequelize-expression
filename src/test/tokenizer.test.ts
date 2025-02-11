@@ -14,6 +14,15 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
         ]
     },
     {
+        expression : 'column2 EQ 0xfF15',
+        expectedTokens : [
+            { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 
+            { type: 'EQ' }, 
+            { type: 'BUFFER', value: Buffer.from([0xff, 0x15]) } as ValueToken,
+            { type: 'END' }
+        ]
+    },
+    {
         expression : 'column2 EQ "3"',
         expectedTokens : [
             { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 

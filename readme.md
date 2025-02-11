@@ -70,6 +70,7 @@ Syntax consists of [primaries](#primaries) connected by [logical operators](#log
 | identifier     |         `leftColumn`          |        "leftColumn"         | Accepts _-% characters                                                         |
 | null           |            `null`             |            null             | reserved keyword                                                               |
 | string literal |       `"null"` `"123"`        |        "null" "123"         | quotes can be escaped using `\"`                                               |
+| buffers        |         `0xdeadbeef`          |     <Buffer de ad be ef>    |                                                                                |
 | numbers        |         `-0.65` `123`         |          -0.65 123          |                                                                                |
 | arrays         | `[1,"two",three,[4],[5;6;],]` | [1,"two","three",[4],[5,6]] | Can be nested. Last comma/semicolon is redundant and optional (like js arrays) |
 | booleans       |        `true` `false`         |         true false          |                                                                                |

@@ -1,4 +1,4 @@
-import type { NumberToken, StringToken, BooleanToken, Token, TokenType, ValueToken } from './tokenizer';
+import type { NumberToken, StringToken, BooleanToken, Token, TokenType, ValueToken, BufferToken } from './tokenizer';
 import type { Resolvers, Primary } from './expression';
 
 import { ErrorBundle, ExpressionError, ExpressionResult } from './errors';
@@ -40,7 +40,7 @@ export type ParserOps = { [operation : string] : symbol };
 
 export type Operator = symbol;
 export type LeftValue = string;
-export type RightValue = string | null | number | boolean | RightValue[];
+export type RightValue = string | null | number | boolean | Buffer | RightValue[];
 
 
 // Util
@@ -152,6 +152,9 @@ class ParsingContext {
     }
     isStringToken(token : Token) : token is StringToken {
         return typeof (token as StringToken).value === 'string';
+    }
+    isBufferToken(token : Token) : token is BufferToken {
+        return Buffer.isBuffer((token as BufferToken).value);
     }
     isNumberToken(token : Token) : token is NumberToken {
         return typeof (token as NumberToken).value === 'number';
@@ -342,7 +345,7 @@ export class Parser {
             return valueToken.value;
         }
 
-        // <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null>
+        // <rightValue> ::= <identifier> | <literalValue> | <number> | <array> | <null> | <buffer>
         function rightValue() : RightValue {
             
             if(c.advanceIfMatch('LEFT_BRACKET')) {
@@ -359,6 +362,12 @@ export class Parser {
                 const rValue = c.getCurrentAndAdvance();
                 if(!c.isNumberToken(rValue)) throw c.newParserHardError('Expected a number in type number of rightValue', c.getPreviousToken());
                 return rValue.value
+            }
+
+            if (c.isCurrentMatch('BUFFER')) {
+                const rValue = c.getCurrentAndAdvance();
+                if(!c.isBufferToken(rValue)) throw c.newParserHardError('Expected a buffer in type buffer of rightValue', c.getPreviousToken());
+                return rValue.value;
             }
 
             if(c.isCurrentMatch('BOOLEAN')) {

@@ -14,13 +14,16 @@ export interface Token {
     position? : { start: number, end: number }
 }
 export interface ValueToken extends Token {
-    value : string | number | boolean
+    value : string | number | boolean | Buffer
 }
 export interface NumberToken extends ValueToken {
     value : number
 }
 export interface StringToken extends ValueToken {
     value : string
+}
+export interface BufferToken extends ValueToken {
+    value : Buffer
 }
 export interface BooleanToken extends ValueToken {
     value : boolean
@@ -32,6 +35,7 @@ export type TokenType =
     'IDENTIFIER'        | // alphanumeric + . + _ + - + % (for compatibility reasons)
     'LITERAL_VALUE'     | // "literal" (with \" as escape)
     'NUMBER'            | // digits + . 
+    'BUFFER'            | // 0x + hex digits
     'BOOLEAN'           | // true false
     'NULL'              | // null
 
@@ -168,6 +172,9 @@ class TokenizerContext {
         return this.source[this.state.pos];
     }
     isAlphaNumeric(char : string) : boolean {
+        return /[0-9a-zA-Z]/.test(char);
+    }
+    isAlphaNumericWithExtra(char : string) : boolean {
         return /[0-9a-zA-Z_\-\.%]/.test(char);
     }
     isNumeric(char : string) : boolean {
@@ -219,7 +226,7 @@ export function tokenizer( source : string ) : ExpressionResult<Token[]> {
     function identifier(char : string) {
         
         let value = char;
-        while (c.isAlphaNumeric(c.getNext())) value += c.getCurrentAndAdvance();
+        while (c.isAlphaNumericWithExtra(c.getNext())) value += c.getCurrentAndAdvance();
 
         // Search for reserved keywords
         const reservedKeywordMatch = reservedKeywords[value.toLowerCase()]        
@@ -229,6 +236,18 @@ export function tokenizer( source : string ) : ExpressionResult<Token[]> {
         }
 
         c.addValueToken('IDENTIFIER', value);
+        return;
+    }
+    function buffer(char : string) {
+        const start = char + c.getCurrentAndAdvance();
+        // Starts with '0x'
+        if(start !== '0x') { c.newTokenizerSoftError('Expected 0x at the start of a buffer'); return; }
+
+        let value = '';
+
+        while (c.isAlphaNumeric(c.getNext())) value += c.getCurrentAndAdvance();
+
+        c.addValueToken('BUFFER', Buffer.from(value, 'hex'));
         return;
     }
     function number(char : string) {
@@ -269,8 +288,10 @@ export function tokenizer( source : string ) : ExpressionResult<Token[]> {
             case ' ': c.clearTokenPos(); break;
             
             default:
+                // if (c.isHexCode(char)) {buffer(char); break;}
+                if (char === '0' && c.getNext() === 'x') {buffer(char); break;}
                 if (c.isNumeric(char)) {number(char); break;}
-                if (c.isAlphaNumeric(char)) {identifier(char); break;}
+                if (c.isAlphaNumericWithExtra(char)) {identifier(char); break;}
             
                 c.newTokenizerSoftError(`Unrecognized character: ${char}`, -1); break;
         }
