@@ -67,7 +67,7 @@ Syntax consists of [primaries](#primaries) connected by [logical operators](#log
 ### Value types
 | name           |           examples            |         tree output         | notes                                                                          |
 | :------------- | :---------------------------: | :-------------------------: | :----------------------------------------------------------------------------- |
-| identifier     |         `leftColumn`          |        "leftColumn"         | Accepts _-% characters                                                         |
+| identifier     |         `leftColumn`          |        "leftColumn"         | Accepts $_-% characters                                                         |
 | null           |            `null`             |            null             | reserved keyword                                                               |
 | string literal |       `"null"` `"123"`        |        "null" "123"         | quotes can be escaped using `\"`                                               |
 | buffers        |         `0xdeadbeef`          |     <Buffer de ad be ef>    |                                                                                |

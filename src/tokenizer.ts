@@ -32,7 +32,7 @@ export interface BooleanToken extends ValueToken {
 export type TokenType = 
         
     // Value
-    'IDENTIFIER'        | // alphanumeric + . + _ + - + % (for compatibility reasons)
+    'IDENTIFIER'        | // [$] + alphanumeric + . + _ + - + % (for compatibility reasons)
     'LITERAL_VALUE'     | // "literal" (with \" as escape)
     'NUMBER'            | // digits + . 
     'BUFFER'            | // 0x + hex digits
@@ -175,7 +175,7 @@ class TokenizerContext {
         return /[0-9a-zA-Z]/.test(char);
     }
     isAlphaNumericWithExtra(char : string) : boolean {
-        return /[0-9a-zA-Z_\-\.%]/.test(char);
+        return /[0-9a-zA-Z_\-\.%$]/.test(char);
     }
     isNumeric(char : string) : boolean {
         return /[0-9\.]/.test(char);

@@ -23,6 +23,24 @@ const operationsToTest : { expression : string, expectedTokens : Token[] }[] =
         ]
     },
     {
+        expression: '$name.pepe EQ 5',
+        expectedTokens: [
+            { type: 'IDENTIFIER', value: '$name.pepe' } as ValueToken,
+            { type: 'EQ' },
+            { type: 'NUMBER', value: 5 } as ValueToken,
+            { type: 'END' }
+        ]
+    },
+    {
+        expression: '"pepe" EQ 5',
+        expectedTokens: [
+            { type: 'LITERAL_VALUE', value: 'pepe' } as ValueToken,
+            { type: 'EQ' },
+            { type: 'NUMBER', value: 5 } as ValueToken,
+            { type: 'END' }
+        ]
+    },
+    {
         expression : 'column2 EQ "3"',
         expectedTokens : [
             { type: 'IDENTIFIER', value: 'column2' } as ValueToken, 
